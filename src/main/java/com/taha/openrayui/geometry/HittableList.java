@@ -10,7 +10,7 @@ import java.util.List;
  * A list of Hittable objects (e.g., spheres).
  * Checks intersections against all objects in the list and returns the closest hit.
  */
-public class HittableList implements Hittable {
+public class HittableList extends Hittable {
     public final List<Hittable> objects = new ArrayList<>();
 
     public HittableList() {}

@@ -14,7 +14,6 @@ import java.awt.image.BufferedImage;
 
 public class App {
 
-    // DEĞİŞİKLİK 1: frame artık sınıfın bir parçası (static field)
     private static MainFrame frame;
 
     private static Thread currentRenderThread;
@@ -22,18 +21,14 @@ public class App {
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            // DEĞİŞİKLİK 2: Parametre vermiyoruz, çünkü frame artık static
             frame = new MainFrame(() -> startNewRender());
             frame.setVisible(true);
 
-            // İlk render'ı başlat
             startNewRender();
         });
     }
 
-    // DEĞİŞİKLİK 3: Parametreden 'frame' silindi
     private static void startNewRender() {
-        // Eski thread'i durdur
         keepRendering = false;
         if (currentRenderThread != null && currentRenderThread.isAlive()) {
             try {
@@ -43,13 +38,11 @@ public class App {
             }
         }
 
-        // Yeni thread başlat
         keepRendering = true;
         currentRenderThread = new Thread(() -> renderLoop()); // Buradan da parametre kalktı
         currentRenderThread.start();
     }
 
-    // DEĞİŞİKLİK 4: Parametreden 'frame' silindi
     private static void renderLoop() {
         RenderSettings settings = RenderSettings.getInstance();
 
@@ -58,7 +51,7 @@ public class App {
         int samples = settings.samplesPerPixel;
         int depth = settings.maxDepth;
 
-        HittableList world = Scene.createWorld();
+        HittableList world = Scene.getInstance().getWorld();
 
         Camera cam = new Camera(
                 settings.lookFrom,
@@ -69,7 +62,6 @@ public class App {
 
         Renderer renderer = new Renderer(depth);
 
-        // Static frame değişkenini kullanıyoruz
         BufferedImage image = frame.getRenderPanel().getImage();
 
         System.out.println("Render Başladı! (Sample: " + samples + ")");
@@ -91,7 +83,6 @@ public class App {
                 int rgb = convertColor(pixelColor, samples);
                 image.setRGB(i, j, rgb);
             }
-            // Static frame değişkenini kullanıyoruz
             frame.getRenderPanel().repaint();
         }
         System.out.println("Render Tamamlandı.");

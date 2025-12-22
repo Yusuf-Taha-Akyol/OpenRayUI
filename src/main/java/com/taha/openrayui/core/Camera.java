@@ -9,22 +9,20 @@ public class Camera {
     private Vec3 horizontal;
     private Vec3 vertical;
 
-    // Artık kamerayı oluştururken nereden nereye baktığını söyleyebileceğiz
     public Camera(Vec3 lookFrom, Vec3 lookAt, double vfov, double aspectRatio) {
         double theta = Math.toRadians(vfov);
         double h = Math.tan(theta / 2);
         double viewportHeight = 2.0 * h;
         double viewportWidth = aspectRatio * viewportHeight;
 
-        Vec3 w = lookFrom.sub(lookAt).unitVector(); // Geriye doğru vektör (Kamera Z)
-        Vec3 u = new Vec3(0, 1, 0).cross(w).unitVector(); // Sağ vektör (Kamera X)
-        Vec3 v = w.cross(u); // Yukarı vektör (Kamera Y)
+        Vec3 w = lookFrom.sub(lookAt).unitVector();
+        Vec3 u = new Vec3(0, 1, 0).cross(w).unitVector();
+        Vec3 v = w.cross(u);
 
         origin = lookFrom;
         horizontal = u.mul(viewportWidth);
         vertical = v.mul(viewportHeight);
 
-        // Sol alt köşe hesabı
         lowerLeftCorner = origin
                 .sub(horizontal.div(2))
                 .sub(vertical.div(2))

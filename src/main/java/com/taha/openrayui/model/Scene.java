@@ -1,5 +1,6 @@
 package com.taha.openrayui.model;
 
+import com.taha.openrayui.geometry.Hittable;
 import com.taha.openrayui.geometry.HittableList;
 import com.taha.openrayui.geometry.Sphere;
 import com.taha.openrayui.material.Dielectric;
@@ -8,30 +9,70 @@ import com.taha.openrayui.material.Material;
 import com.taha.openrayui.material.Metal;
 import com.taha.openrayui.math.Vec3;
 
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Represents the 3D world scene.
+ * Manages all objects and provides access for the renderer and UI.
+ */
 public class Scene {
+    private static Scene instance;
+    private final HittableList world;
 
-    public static HittableList createWorld() {
-        HittableList world = new HittableList();
+    // We keep a separate list to access specific object properties easily (for UI)
+    // HittableList stores them as generic Hittables, but here we might want to cast them later.
+    private final List<Hittable> objectList;
 
-        // 1. ZEMİN (Sarımsı Mat)
-        Material groundMat = new Lambertian(new Vec3(0.8, 0.8, 0.0));
-        world.add(new Sphere(new Vec3(0.0, -100.5, -1.0), 100.0, groundMat));
+    private Scene() {
+        world = new HittableList();
+        objectList = new ArrayList<>();
+        loadDefaultScene();
+    }
 
-        // 2. ORTA (Mat Lacivert)
-        Material centerMat = new Lambertian(new Vec3(0.1, 0.2, 0.5));
-        world.add(new Sphere(new Vec3(0.0, 0.0, -1.0), 0.5, centerMat));
+    public static Scene getInstance() {
+        if (instance == null) {
+            instance = new Scene();
+        }
+        return instance;
+    }
 
-        // 3. SOL (CAM / Dielectric) - Kırılma indisi 1.5
-        Material leftMat = new Dielectric(1.5);
-        world.add(new Sphere(new Vec3(-1.0, 0.0, -1.0), 0.5, leftMat));
-
-        // (Opsiyonel) Camın içine hava kabarcığı efekti için (Negatif yarıçap)
-        // world.add(new Sphere(new Vec3(-1.0, 0.0, -1.0), -0.4, leftMat));
-
-        // 4. SAĞ (ALTIN / Metal)
-        Material rightMat = new Metal(new Vec3(0.8, 0.6, 0.2), 0.0);
-        world.add(new Sphere(new Vec3(1.0, 0.0, -1.0), 0.5, rightMat));
-
+    public HittableList getWorld() {
         return world;
+    }
+
+    public List<Hittable> getObjectList() {
+        return objectList;
+    }
+
+    // Adds an object to both the render world and the management list
+    public void addObject(Hittable object) {
+        world.add(object);
+        objectList.add(object);
+    }
+
+    // Clears and reloads the default scene
+    public void reset() {
+        world.clear();
+        objectList.clear();
+        loadDefaultScene();
+    }
+
+    private void loadDefaultScene() {
+        // 1. Ground (Yellowish Matte)
+        Material groundMat = new Lambertian(new Vec3(0.8, 0.8, 0.0));
+        addObject(new Sphere(new Vec3(0.0, -100.5, -1.0), 100.0, groundMat));
+
+        // 2. Center (Matte Blue)
+        Material centerMat = new Lambertian(new Vec3(0.1, 0.2, 0.5));
+        addObject(new Sphere(new Vec3(0.0, 0.0, -1.0), 0.5, centerMat));
+
+        // 3. Left (Glass / Dielectric)
+        Material leftMat = new Dielectric(1.5);
+        addObject(new Sphere(new Vec3(-1.0, 0.0, -1.0), 0.5, leftMat));
+
+        // 4. Right (Gold / Metal)
+        Material rightMat = new Metal(new Vec3(0.8, 0.6, 0.2), 0.0);
+        addObject(new Sphere(new Vec3(1.0, 0.0, -1.0), 0.5, rightMat));
     }
 }

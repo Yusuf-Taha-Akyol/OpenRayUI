@@ -7,7 +7,6 @@ import java.awt.*;
 
 public class SettingsPanel extends JPanel {
 
-    // Render'ı yeniden başlatmak için ana programa sinyal göndereceğiz
     private final Runnable onRenderTrigger;
 
     public SettingsPanel(Runnable onRenderTrigger) {
@@ -19,7 +18,6 @@ public class SettingsPanel extends JPanel {
 
         addHeader("Render Ayarları");
 
-        // --- Sample Count (Kalite) ---
         addLabel("Kalite (Sample):");
         JSpinner sampleSpinner = new JSpinner(new SpinnerNumberModel(10, 1, 1000, 10));
         sampleSpinner.addChangeListener(e -> {
@@ -27,7 +25,6 @@ public class SettingsPanel extends JPanel {
         });
         addComponent(sampleSpinner);
 
-        // --- Derinlik (Bounces) ---
         addLabel("Işık Sekmesi (Depth):");
         JSpinner depthSpinner = new JSpinner(new SpinnerNumberModel(20, 1, 100, 5));
         depthSpinner.addChangeListener(e -> {
@@ -38,8 +35,6 @@ public class SettingsPanel extends JPanel {
         addSeparator();
         addHeader("Kamera Pozisyonu");
 
-        // --- Kamera X, Y, Z ---
-        // Basit olması için 3 tane ayrı kutu yapıyoruz
         addLabel("Konum X:");
         addSmartTextField(0.0, val -> RenderSettings.getInstance().lookFrom =
                 new Vec3(val, RenderSettings.getInstance().lookFrom.y, RenderSettings.getInstance().lookFrom.z));
@@ -54,7 +49,6 @@ public class SettingsPanel extends JPanel {
 
         addSeparator();
 
-        // --- Render Butonu ---
         JButton renderBtn = new JButton("RENDER AL");
         renderBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         renderBtn.setBackground(new Color(70, 130, 180)); // Çelik Mavisi
@@ -63,7 +57,6 @@ public class SettingsPanel extends JPanel {
         renderBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
 
         renderBtn.addActionListener(e -> {
-            // Butona basılınca App.java'ya "Başlat" sinyali gönder
             onRenderTrigger.run();
         });
 
@@ -71,7 +64,6 @@ public class SettingsPanel extends JPanel {
         add(renderBtn);
     }
 
-    // --- Yardımcı Metotlar (Kod tekrarını önlemek için) ---
 
     private void addHeader(String text) {
         JLabel label = new JLabel(text);
@@ -103,14 +95,11 @@ public class SettingsPanel extends JPanel {
         add(Box.createVerticalStrut(10));
     }
 
-    // Kullanıcı sayı girip Enter'a basınca ayarı güncelleyen akıllı kutu
-    // Kullanıcı sayı girip Enter'a basınca VEYA kutudan çıkınca güncelleyen akıllı metod
     private void addSmartTextField(double defaultValue, java.util.function.DoubleConsumer onUpdate) {
         JTextField field = new JTextField(String.valueOf(defaultValue));
         field.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
         field.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // Bu küçük yardımcı fonksiyon, değeri güvenli bir şekilde günceller
         Runnable updateAction = () -> {
             try {
                 double val = Double.parseDouble(field.getText());
@@ -121,10 +110,8 @@ public class SettingsPanel extends JPanel {
             }
         };
 
-        // 1. Enter tuşuna basılınca kaydet
         field.addActionListener(e -> updateAction.run());
 
-        // 2. Kutudan fareyle başka yere tıklayınca (Focus Lost) kaydet <-- YENİ ÖZELLİK
         field.addFocusListener(new java.awt.event.FocusAdapter() {
             @Override
             public void focusLost(java.awt.event.FocusEvent e) {

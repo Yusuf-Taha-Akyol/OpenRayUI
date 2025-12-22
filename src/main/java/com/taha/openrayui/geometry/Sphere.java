@@ -8,7 +8,7 @@ import com.taha.openrayui.math.Vec3;
 /**
  * Represents a Sphere defined by a center point and radius.
  */
-public class Sphere implements Hittable {
+public class Sphere extends Hittable {
     private final Vec3 center;
     private final double radius;
     private final Material mat;
