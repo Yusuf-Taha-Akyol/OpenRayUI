@@ -7,13 +7,17 @@ import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
+import java.util.Locale;
 import java.util.function.DoubleConsumer;
 
 public class SettingsPanel extends JPanel {
 
-    // Constructor now takes two actions: one for Render, one for Save
-    public SettingsPanel(Runnable onRenderTrigger, Runnable onSaveTrigger) {
+    // Class-level references to update them later
+    private JTextField camXField;
+    private JTextField camYField;
+    private JTextField camZField;
 
+    public SettingsPanel(Runnable onRenderTrigger, Runnable onSaveTrigger) {
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 
         // --- STYLING ---
@@ -21,7 +25,6 @@ public class SettingsPanel extends JPanel {
                 new TitledBorder("Control Panel"),
                 new EmptyBorder(10, 10, 10, 10)
         ));
-
         setPreferredSize(new Dimension(280, 0));
 
         // --- SAMPLE COUNT ---
@@ -44,9 +47,15 @@ public class SettingsPanel extends JPanel {
         addLabel("Camera Position (X, Y, Z):");
 
         // --- CAMERA INPUTS ---
-        addSmartTextField(0.0, val -> updateCameraX(val));
-        addSmartTextField(0.0, val -> updateCameraY(val));
-        addSmartTextField(1.0, val -> updateCameraZ(val));
+        // We create specific fields for X, Y, Z and store references
+        camXField = createSmartTextField(0.0, val -> updateCameraX(val));
+        camYField = createSmartTextField(0.0, val -> updateCameraY(val));
+        camZField = createSmartTextField(1.0, val -> updateCameraZ(val));
+
+        // Add them to the panel
+        addComponent(camXField);
+        addComponent(camYField);
+        addComponent(camZField);
 
         // Push buttons to the bottom
         add(Box.createVerticalGlue());
@@ -60,17 +69,31 @@ public class SettingsPanel extends JPanel {
         renderBtn.addActionListener(e -> onRenderTrigger.run());
         add(renderBtn);
 
-        add(Box.createVerticalStrut(10)); // Spacing between buttons
+        add(Box.createVerticalStrut(10));
 
-        // --- SAVE BUTTON (NEW) ---
+        // --- SAVE BUTTON ---
         JButton saveBtn = new JButton("SAVE IMAGE");
         saveBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         saveBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
         saveBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-
-        // Trigger the save action passed from MainFrame
         saveBtn.addActionListener(e -> onSaveTrigger.run());
         add(saveBtn);
+
+        // Initial sync
+        updateCameraFields();
+    }
+
+    /**
+     * Updates the text fields with the current values from RenderSettings.
+     * Called by MainFrame when the mouse moves the camera.
+     */
+    public void updateCameraFields() {
+        Vec3 pos = RenderSettings.getInstance().lookFrom;
+
+        // Using Locale.US to ensure dot (.) is used instead of comma (,)
+        camXField.setText(String.format(Locale.US, "%.2f", pos.x));
+        camYField.setText(String.format(Locale.US, "%.2f", pos.y));
+        camZField.setText(String.format(Locale.US, "%.2f", pos.z));
     }
 
     // --- Helper Methods ---
@@ -112,7 +135,8 @@ public class SettingsPanel extends JPanel {
         add(Box.createVerticalStrut(10));
     }
 
-    private void addSmartTextField(double defaultValue, DoubleConsumer onUpdate) {
+    // Modified to return the JTextField instead of adding it directly
+    private JTextField createSmartTextField(double defaultValue, DoubleConsumer onUpdate) {
         JTextField field = new JTextField(String.valueOf(defaultValue));
         field.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
         field.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -134,7 +158,6 @@ public class SettingsPanel extends JPanel {
             }
         });
 
-        add(field);
-        add(Box.createVerticalStrut(5));
+        return field;
     }
 }
