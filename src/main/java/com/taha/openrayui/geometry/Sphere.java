@@ -6,54 +6,68 @@ import com.taha.openrayui.math.Ray;
 import com.taha.openrayui.math.Vec3;
 
 /**
- * Represents a Sphere defined by a center point and radius.
+ * Represents a sphere object in the 3D scene.
+ * Updated with getters and setters to allow dynamic editing via the UI.
  */
 public class Sphere extends Hittable {
-    private final Vec3 center;
-    private final double radius;
-    private final Material mat;
+
+    // Fields are no longer 'final' so they can be modified at runtime
+    private Vec3 center;
+    private double radius;
+    private Material mat;
 
     public Sphere(Vec3 center, double radius, Material mat) {
         this.center = center;
         this.radius = radius;
         this.mat = mat;
+        // Set a default name if none is provided
+        setName("Sphere");
     }
+
+    // --- GETTERS & SETTERS (NEW) ---
+    // These methods allow the Object Inspector to read and modify sphere properties.
+
+    public Vec3 getCenter() { return center; }
+
+    public void setCenter(Vec3 center) { this.center = center; }
+
+    public double getRadius() { return radius; }
+
+    public void setRadius(double radius) { this.radius = radius; }
+
+    public Material getMaterial() { return mat; }
+
+    // --- RAY TRACING LOGIC ---
 
     @Override
     public boolean hit(Ray r, double tMin, double tMax, HitRecord rec) {
         Vec3 oc = r.origin().sub(center);
-
-        // Quadratic equation components: at^2 + bt + c = 0
         double a = r.direction().lengthSquared();
         double half_b = oc.dot(r.direction());
         double c = oc.lengthSquared() - radius * radius;
-
         double discriminant = half_b * half_b - a * c;
-        if (discriminant < 0) {
-            return false; // No real roots, ray misses the sphere
-        }
 
-        double sqrtd = Math.sqrt(discriminant);
-
-        // Find the nearest root that lies in the acceptable range.
-        double root = (-half_b - sqrtd) / a;
-        if (root < tMin || tMax < root) {
-            root = (-half_b + sqrtd) / a;
-            if (root < tMin || tMax < root) {
-                return false;
+        if (discriminant > 0) {
+            double root = Math.sqrt(discriminant);
+            double temp = (-half_b - root) / a;
+            if (temp < tMax && temp > tMin) {
+                rec.t = temp;
+                rec.p = r.at(rec.t);
+                Vec3 outwardNormal = (rec.p.sub(center)).div(radius);
+                rec.setFaceNormal(r, outwardNormal);
+                rec.mat = mat;
+                return true;
+            }
+            temp = (-half_b + root) / a;
+            if (temp < tMax && temp > tMin) {
+                rec.t = temp;
+                rec.p = r.at(rec.t);
+                Vec3 outwardNormal = (rec.p.sub(center)).div(radius);
+                rec.setFaceNormal(r, outwardNormal);
+                rec.mat = mat;
+                return true;
             }
         }
-
-        // Record hit details
-        rec.t = root;
-        rec.p = r.at(rec.t);
-
-        // Calculate outward normal: (point - center) / radius
-        Vec3 outwardNormal = (rec.p.sub(center)).div(radius);
-        rec.setFaceNormal(r, outwardNormal);
-
-        rec.mat = this.mat; // Don't forget to assign the material!
-
-        return true;
+        return false;
     }
 }

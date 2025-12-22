@@ -9,24 +9,23 @@ import com.taha.openrayui.material.Material;
 import com.taha.openrayui.material.Metal;
 import com.taha.openrayui.math.Vec3;
 
-import java.util.ArrayList;
-import java.util.List;
+import javax.swing.*;
 
 /**
- * Represents the 3D world scene.
- * Manages all objects and provides access for the renderer and UI.
+ * Manages the 3D world and provides data for both the Renderer and the UI Outliner.
  */
 public class Scene {
     private static Scene instance;
+
+    // The list used by the Ray Tracing engine (optimized for rendering)
     private final HittableList world;
 
-    // We keep a separate list to access specific object properties easily (for UI)
-    // HittableList stores them as generic Hittables, but here we might want to cast them later.
-    private final List<Hittable> objectList;
+    // The list model used by the Swing UI (optimized for JList)
+    private final DefaultListModel<Hittable> uiListModel;
 
     private Scene() {
         world = new HittableList();
-        objectList = new ArrayList<>();
+        uiListModel = new DefaultListModel<>();
         loadDefaultScene();
     }
 
@@ -41,38 +40,45 @@ public class Scene {
         return world;
     }
 
-    public List<Hittable> getObjectList() {
-        return objectList;
+    // New method for UI to access the list data
+    public DefaultListModel<Hittable> getUiListModel() {
+        return uiListModel;
     }
 
-    // Adds an object to both the render world and the management list
+    // Unified method to add objects to both the engine and the UI
     public void addObject(Hittable object) {
         world.add(object);
-        objectList.add(object);
+        uiListModel.addElement(object);
     }
 
-    // Clears and reloads the default scene
-    public void reset() {
+    public void clear() {
         world.clear();
-        objectList.clear();
-        loadDefaultScene();
+        uiListModel.clear();
     }
 
     private void loadDefaultScene() {
-        // 1. Ground (Yellowish Matte)
+        // 1. Ground
         Material groundMat = new Lambertian(new Vec3(0.8, 0.8, 0.0));
-        addObject(new Sphere(new Vec3(0.0, -100.5, -1.0), 100.0, groundMat));
+        Sphere ground = new Sphere(new Vec3(0.0, -100.5, -1.0), 100.0, groundMat);
+        ground.setName("Ground (Floor)");
+        addObject(ground);
 
-        // 2. Center (Matte Blue)
+        // 2. Center Sphere
         Material centerMat = new Lambertian(new Vec3(0.1, 0.2, 0.5));
-        addObject(new Sphere(new Vec3(0.0, 0.0, -1.0), 0.5, centerMat));
+        Sphere center = new Sphere(new Vec3(0.0, 0.0, -1.0), 0.5, centerMat);
+        center.setName("Blue Sphere (Center)");
+        addObject(center);
 
-        // 3. Left (Glass / Dielectric)
+        // 3. Left Sphere (Glass)
         Material leftMat = new Dielectric(1.5);
-        addObject(new Sphere(new Vec3(-1.0, 0.0, -1.0), 0.5, leftMat));
+        Sphere left = new Sphere(new Vec3(-1.0, 0.0, -1.0), 0.5, leftMat);
+        left.setName("Glass Sphere (Left)");
+        addObject(left);
 
-        // 4. Right (Gold / Metal)
+        // 4. Right Sphere (Metal)
         Material rightMat = new Metal(new Vec3(0.8, 0.6, 0.2), 0.0);
-        addObject(new Sphere(new Vec3(1.0, 0.0, -1.0), 0.5, rightMat));
+        Sphere right = new Sphere(new Vec3(1.0, 0.0, -1.0), 0.5, rightMat);
+        right.setName("Gold Sphere (Right)");
+        addObject(right);
     }
 }

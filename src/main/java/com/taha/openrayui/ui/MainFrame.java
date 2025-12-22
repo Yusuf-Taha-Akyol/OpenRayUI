@@ -12,42 +12,65 @@ public class MainFrame extends JFrame {
 
     private final RenderPanel renderPanel;
     private final SettingsPanel settingsPanel;
+    private final OutlinerPanel outlinerPanel;
+    private final ObjectInspectorPanel inspectorPanel; // Reference to the new Inspector
 
     public MainFrame(Runnable onRenderRequest) {
-        // --- Window Settings ---
+        // --- WINDOW SETTINGS ---
         setTitle("OpenRayUI - Java Ray Tracer Studio");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(true);
-        setMinimumSize(new Dimension(800, 600));
+        setMinimumSize(new Dimension(1000, 600)); // Increased width for the new panels
 
         setLayout(new BorderLayout());
 
-        // --- 1. Render Area ---
+        // --- 1. CENTER: Render Area ---
         renderPanel = new RenderPanel(800, 450);
         RenderSettings.getInstance().imageWidth = 800;
         RenderSettings.getInstance().imageHeight = 450;
 
-        // --- Mouse Control ---
-        CameraInputHandler cameraController = new CameraInputHandler(
-                onRenderRequest,
-                onRenderRequest
-        );
+        // Setup Mouse Control (Orbit/Zoom)
+        CameraInputHandler cameraController = new CameraInputHandler(onRenderRequest, onRenderRequest);
         renderPanel.addMouseListener(cameraController);
         renderPanel.addMouseMotionListener(cameraController);
         renderPanel.addMouseWheelListener(cameraController);
 
         add(new JScrollPane(renderPanel), BorderLayout.CENTER);
 
-        // --- SAVE LOGIC (NEW) ---
-        // This runnable defines what happens when "SAVE IMAGE" is clicked.
-        Runnable onSaveRequest = () -> saveRenderedImage();
+        // --- 2. WEST: Outliner Panel ---
+        outlinerPanel = new OutlinerPanel();
+        add(outlinerPanel, BorderLayout.WEST);
 
-        // --- 2. Settings Panel ---
-        // We pass both the Render trigger and the Save trigger
-        settingsPanel = new SettingsPanel(onRenderRequest, onSaveRequest);
-        add(settingsPanel, BorderLayout.EAST);
+        // --- 3. EAST: Tabbed Pane (Settings & Inspector) ---
+        JTabbedPane tabbedPane = new JTabbedPane();
+        tabbedPane.setPreferredSize(new Dimension(300, 0)); // Fixed width for right panel
 
-        // --- Finalize ---
+        // Tab 1: Render Settings
+        settingsPanel = new SettingsPanel(onRenderRequest, () -> saveRenderedImage());
+        tabbedPane.addTab("Render", settingsPanel);
+
+        // Tab 2: Object Inspector
+        // We pass 'onRenderRequest' so scene updates trigger a re-render
+        inspectorPanel = new ObjectInspectorPanel(onRenderRequest);
+        tabbedPane.addTab("Object", inspectorPanel);
+
+        add(tabbedPane, BorderLayout.EAST);
+
+        // --- LINK OUTLINER TO INSPECTOR ---
+        // When an object is selected in the list, update the Inspector panel
+        outlinerPanel.getList().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                // Send selected object to inspector
+                inspectorPanel.inspect(outlinerPanel.getList().getSelectedValue());
+
+                // Automatically switch to the 'Object' tab for better UX
+                if (outlinerPanel.getList().getSelectedValue() != null) {
+                    tabbedPane.setSelectedIndex(1);
+                }
+            }
+        });
+
+        // --- FINALIZE ---
         pack();
         setLocationRelativeTo(null);
     }
@@ -57,45 +80,25 @@ public class MainFrame extends JFrame {
     }
 
     /**
-     * Opens a file chooser dialog and saves the current render as a PNG file.
+     * Opens a file chooser to save the current render as PNG.
      */
     private void saveRenderedImage() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("Save Render Output");
-
-        // Set default file name
         fileChooser.setSelectedFile(new File("render_output.png"));
 
-        // Filter to only show PNG files
         FileNameExtensionFilter filter = new FileNameExtensionFilter("PNG Images", "png");
         fileChooser.setFileFilter(filter);
 
-        // Show "Save" dialog
-        int userSelection = fileChooser.showSaveDialog(this);
-
-        if (userSelection == JFileChooser.APPROVE_OPTION) {
+        if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             File fileToSave = fileChooser.getSelectedFile();
-
-            // Ensure the file has a .png extension
             if (!fileToSave.getAbsolutePath().toLowerCase().endsWith(".png")) {
                 fileToSave = new File(fileToSave.getAbsolutePath() + ".png");
             }
-
             try {
-                // Get the image directly from the panel and write it to disk
-                BufferedImage image = renderPanel.getImage();
-                ImageIO.write(image, "png", fileToSave);
-
-                JOptionPane.showMessageDialog(this,
-                        "Image saved successfully!\n" + fileToSave.getAbsolutePath(),
-                        "Success",
-                        JOptionPane.INFORMATION_MESSAGE);
-
+                ImageIO.write(renderPanel.getImage(), "png", fileToSave);
+                JOptionPane.showMessageDialog(this, "Saved: " + fileToSave.getName());
             } catch (IOException ex) {
-                JOptionPane.showMessageDialog(this,
-                        "Error saving image: " + ex.getMessage(),
-                        "Error",
-                        JOptionPane.ERROR_MESSAGE);
                 ex.printStackTrace();
             }
         }
