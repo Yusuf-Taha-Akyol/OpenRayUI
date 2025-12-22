@@ -1,10 +1,14 @@
 package com.taha.openrayui.math;
 
+import java.io.Serializable;
+
 /**
  * Represents a 3D vector used for coordinates (x, y, z), colors (r, g, b),
  * or directions. Immutable class for thread safety.
  */
-public class Vec3 {
+public class Vec3 implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     public final double x;
     public final double y;
     public final double z;

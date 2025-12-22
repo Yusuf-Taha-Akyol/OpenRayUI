@@ -91,4 +91,19 @@ public class Scene {
         right.setName("Gold Sphere (Right)");
         addObject(right);
     }
+
+    /**
+     * Replaces the current scene with a new list of objects loaded from a file.
+     */
+    public void loadSceneFromList(HittableList newWorld) {
+        // 1. Mevcut sahneyi temizle
+        clear();
+
+        // 2. Yeni listedeki her bir objeyi sisteme ekle
+        // (HittableList içindeki listeye erişemediğimiz için döngüyle alıyoruz)
+        for (int i = 0; i < newWorld.size(); i++) {
+            Hittable obj = newWorld.get(i);
+            addObject(obj);
+        }
+    }
 }

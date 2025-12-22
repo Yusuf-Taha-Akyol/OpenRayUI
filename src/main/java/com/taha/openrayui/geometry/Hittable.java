@@ -2,12 +2,14 @@ package com.taha.openrayui.geometry;
 
 import com.taha.openrayui.core.HitRecord;
 import com.taha.openrayui.math.Ray;
+import java.io.Serializable;
 
 /**
  * Abstract base class for all scene objects.
  * Updated to include a 'name' field for the UI Outliner.
  */
-public abstract class Hittable { // Ensure this is 'abstract class', not 'interface'
+public abstract class Hittable implements Serializable{
+    private static final long serialVersionUID = 1L;
 
     private String name = "Object";
 
