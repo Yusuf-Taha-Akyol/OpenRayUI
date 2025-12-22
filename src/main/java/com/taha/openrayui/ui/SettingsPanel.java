@@ -3,29 +3,37 @@ package com.taha.openrayui.ui;
 import com.taha.openrayui.math.Vec3;
 
 import javax.swing.*;
+import javax.swing.border.CompoundBorder;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.TitledBorder;
 import java.awt.*;
+import java.util.function.DoubleConsumer;
 
 public class SettingsPanel extends JPanel {
 
-    private final Runnable onRenderTrigger;
-
-    public SettingsPanel(Runnable onRenderTrigger) {
-        this.onRenderTrigger = onRenderTrigger;
+    // Constructor now takes two actions: one for Render, one for Save
+    public SettingsPanel(Runnable onRenderTrigger, Runnable onSaveTrigger) {
 
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-        setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        setPreferredSize(new Dimension(250, 0)); // Genişliği sabitle
 
-        addHeader("Render Ayarları");
+        // --- STYLING ---
+        setBorder(new CompoundBorder(
+                new TitledBorder("Control Panel"),
+                new EmptyBorder(10, 10, 10, 10)
+        ));
 
-        addLabel("Kalite (Sample):");
+        setPreferredSize(new Dimension(280, 0));
+
+        // --- SAMPLE COUNT ---
+        addLabel("Quality (Sample):");
         JSpinner sampleSpinner = new JSpinner(new SpinnerNumberModel(10, 1, 1000, 10));
         sampleSpinner.addChangeListener(e -> {
             RenderSettings.getInstance().samplesPerPixel = (int) sampleSpinner.getValue();
         });
         addComponent(sampleSpinner);
 
-        addLabel("Işık Sekmesi (Depth):");
+        // --- DEPTH ---
+        addLabel("Max Bounces (Depth):");
         JSpinner depthSpinner = new JSpinner(new SpinnerNumberModel(20, 1, 100, 5));
         depthSpinner.addChangeListener(e -> {
             RenderSettings.getInstance().maxDepth = (int) depthSpinner.getValue();
@@ -33,58 +41,67 @@ public class SettingsPanel extends JPanel {
         addComponent(depthSpinner);
 
         addSeparator();
-        addHeader("Kamera Pozisyonu");
+        addLabel("Camera Position (X, Y, Z):");
 
-        addLabel("Konum X:");
-        addSmartTextField(0.0, val -> RenderSettings.getInstance().lookFrom =
-                new Vec3(val, RenderSettings.getInstance().lookFrom.y, RenderSettings.getInstance().lookFrom.z));
+        // --- CAMERA INPUTS ---
+        addSmartTextField(0.0, val -> updateCameraX(val));
+        addSmartTextField(0.0, val -> updateCameraY(val));
+        addSmartTextField(1.0, val -> updateCameraZ(val));
 
-        addLabel("Konum Y:");
-        addSmartTextField(0.0, val -> RenderSettings.getInstance().lookFrom =
-                new Vec3(RenderSettings.getInstance().lookFrom.x, val, RenderSettings.getInstance().lookFrom.z));
-
-        addLabel("Konum Z:");
-        addSmartTextField(1.0, val -> RenderSettings.getInstance().lookFrom =
-                new Vec3(RenderSettings.getInstance().lookFrom.x, RenderSettings.getInstance().lookFrom.y, val));
-
+        // Push buttons to the bottom
+        add(Box.createVerticalGlue());
         addSeparator();
 
-        JButton renderBtn = new JButton("RENDER AL");
+        // --- RENDER BUTTON ---
+        JButton renderBtn = new JButton("RENDER SCENE");
         renderBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        renderBtn.setBackground(new Color(70, 130, 180)); // Çelik Mavisi
-        renderBtn.setForeground(Color.WHITE);
-        renderBtn.setFont(new Font("Arial", Font.BOLD, 14));
+        renderBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
         renderBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-
-        renderBtn.addActionListener(e -> {
-            onRenderTrigger.run();
-        });
-
-        add(Box.createVerticalStrut(20));
+        renderBtn.addActionListener(e -> onRenderTrigger.run());
         add(renderBtn);
+
+        add(Box.createVerticalStrut(10)); // Spacing between buttons
+
+        // --- SAVE BUTTON (NEW) ---
+        JButton saveBtn = new JButton("SAVE IMAGE");
+        saveBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        saveBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        saveBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+
+        // Trigger the save action passed from MainFrame
+        saveBtn.addActionListener(e -> onSaveTrigger.run());
+        add(saveBtn);
     }
 
+    // --- Helper Methods ---
 
-    private void addHeader(String text) {
-        JLabel label = new JLabel(text);
-        label.setFont(new Font("Arial", Font.BOLD, 14));
-        label.setAlignmentX(Component.LEFT_ALIGNMENT);
-        add(label);
-        add(Box.createVerticalStrut(10));
+    private void updateCameraX(double val) {
+        Vec3 old = RenderSettings.getInstance().lookFrom;
+        RenderSettings.getInstance().lookFrom = new Vec3(val, old.y, old.z);
+    }
+
+    private void updateCameraY(double val) {
+        Vec3 old = RenderSettings.getInstance().lookFrom;
+        RenderSettings.getInstance().lookFrom = new Vec3(old.x, val, old.z);
+    }
+
+    private void updateCameraZ(double val) {
+        Vec3 old = RenderSettings.getInstance().lookFrom;
+        RenderSettings.getInstance().lookFrom = new Vec3(old.x, old.y, val);
     }
 
     private void addLabel(String text) {
         JLabel label = new JLabel(text);
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
         add(label);
-        add(Box.createVerticalStrut(2));
+        add(Box.createVerticalStrut(5));
     }
 
     private void addComponent(JComponent comp) {
         comp.setAlignmentX(Component.LEFT_ALIGNMENT);
         comp.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
         add(comp);
-        add(Box.createVerticalStrut(10));
+        add(Box.createVerticalStrut(15));
     }
 
     private void addSeparator() {
@@ -95,7 +112,7 @@ public class SettingsPanel extends JPanel {
         add(Box.createVerticalStrut(10));
     }
 
-    private void addSmartTextField(double defaultValue, java.util.function.DoubleConsumer onUpdate) {
+    private void addSmartTextField(double defaultValue, DoubleConsumer onUpdate) {
         JTextField field = new JTextField(String.valueOf(defaultValue));
         field.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
         field.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -104,14 +121,12 @@ public class SettingsPanel extends JPanel {
             try {
                 double val = Double.parseDouble(field.getText());
                 onUpdate.accept(val);
-                System.out.println("Ayar güncellendi: " + val);
             } catch (NumberFormatException ex) {
-                System.err.println("Geçersiz sayı, eski değer korunuyor.");
+                // Ignore invalid input
             }
         };
 
         field.addActionListener(e -> updateAction.run());
-
         field.addFocusListener(new java.awt.event.FocusAdapter() {
             @Override
             public void focusLost(java.awt.event.FocusEvent e) {
