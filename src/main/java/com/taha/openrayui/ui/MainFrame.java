@@ -1,5 +1,6 @@
 package com.taha.openrayui.ui;
 
+import com.taha.openrayui.geometry.Hittable;
 import com.taha.openrayui.geometry.HittableList;
 import com.taha.openrayui.model.Scene;
 
@@ -7,32 +8,25 @@ import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.*;
 
 /**
  * The main application window for OpenRayUI.
- * It acts as the central hub connecting the Rendering Engine, UI Panels, and User Inputs.
- * * Layout Structure:
- * - NORTH: Menu Bar (File Operations)
- * - CENTER: Render Panel (3D Viewport with HUD Zoom Buttons)
- * - WEST: Outliner Panel (Scene Graph)
- * - EAST: Settings & Inspector Tabs (Properties)
+ * Acts as the central hub connecting the Rendering Engine, UI Panels, and User Inputs.
  */
 public class MainFrame extends JFrame {
 
     // --- UI Components ---
-    private final RenderPanel renderPanel;           // Displays the ray-traced image
+    private final RenderPanel renderPanel;           // Displays the ray-traced image & Gizmos
     private final SettingsPanel settingsPanel;       // Global render settings (Quality, Camera)
     private final OutlinerPanel outlinerPanel;       // List of objects in the scene
     private final ObjectInspectorPanel inspectorPanel; // Editor for selected object properties
 
     // --- Controllers ---
-    private final CameraInputHandler cameraController; // Handles mouse inputs for camera movement
+    private final CameraInputHandler cameraController;
 
-    /**
-     * Constructs the main window and initializes the UI layout.
-     * @param onRenderRequest A callback to trigger a new render frame (passed to child panels).
-     */
     public MainFrame(Runnable onRenderRequest) {
         // --- 1. Window Configuration ---
         setTitle("OpenRayUI - Java Ray Tracer Studio");
@@ -46,119 +40,154 @@ public class MainFrame extends JFrame {
         // Use BorderLayout to organize the main panels
         setLayout(new BorderLayout());
 
-        // --- 3. Initialize Panels (Order Matters!) ---
+        // =================================================================================
+        // 3. INITIALIZE ALL PANELS FIRST (To avoid "variable not initialized" errors)
+        // =================================================================================
 
-        // A. Settings Panel (Right Side)
-        // We initialize this FIRST because the camera controller needs to update its fields.
+        // A. Settings Panel
         settingsPanel = new SettingsPanel(onRenderRequest, this::saveRenderedImage);
 
-        // B. Render Viewport (Center)
+        // B. Render Viewport
         renderPanel = new RenderPanel(800, 450);
         renderPanel.setLayout(new GridBagLayout()); // Use GridBag for overlaying HUD buttons
 
+        // C. Outliner Panel (CRITICAL: Must be initialized BEFORE controllers!)
+        outlinerPanel = new OutlinerPanel(onRenderRequest);
+
+        // D. Inspector Panel
+        inspectorPanel = new ObjectInspectorPanel(onRenderRequest);
+
+        // Configure Global Settings
         RenderSettings.getInstance().imageWidth = 800;
         RenderSettings.getInstance().imageHeight = 450;
 
-        // --- 4. Camera Controller & Sync Logic ---
-        // We define a wrapper action that:
-        // 1. Updates the UI text fields in SettingsPanel (Two-way binding)
-        // 2. Triggers a new render
+        // =================================================================================
+        // 4. SETUP CONTROLLERS (Now all panels exist)
+        // =================================================================================
+
+        // A. Gizmo Controller (Handles Object Manipulation)
+        // We can safely pass 'outlinerPanel' now because it was created in step 3.C
+        GizmoController gizmoController = new GizmoController(
+                renderPanel, outlinerPanel, onRenderRequest, onRenderRequest
+        );
+
+        // Define what happens when the Camera moves (Sync UI & Redraw)
         Runnable onCameraMove = () -> {
-            settingsPanel.updateCameraFields(); // Sync UI with internal camera state
+            settingsPanel.updateCameraFields(); // Sync Text Fields
             onRenderRequest.run();              // Re-render scene
+            renderPanel.repaint();              // Redraw Gizmo arrows at new position
         };
 
-        // Initialize controller with the sync action
-        cameraController = new CameraInputHandler(onCameraMove, onCameraMove);
+        // B. Camera Controller (Handles Navigation)
+        // Wraps Gizmo logic to prioritize Object Moving over Camera Moving
+        cameraController = new CameraInputHandler(onCameraMove, onCameraMove) {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                // Try Gizmo first
+                gizmoController.mousePressed(e);
 
-        // Attach listeners to the render panel for mouse interaction
+                // If Gizmo didn't consume the click, allow Camera orbit
+                if (!gizmoController.isInteracting()) {
+                    super.mousePressed(e);
+                }
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                gizmoController.mouseReleased(e);
+                super.mouseReleased(e);
+            }
+
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                if (gizmoController.isInteracting()) {
+                    gizmoController.mouseDragged(e); // Move Object
+                } else {
+                    super.mouseDragged(e); // Move Camera
+                }
+            }
+        };
+
+        // Attach Controller to RenderPanel
         renderPanel.addMouseListener(cameraController);
         renderPanel.addMouseMotionListener(cameraController);
         renderPanel.addMouseWheelListener(cameraController);
 
-        // --- 5. HUD: Zoom Buttons ---
-        // Add floating buttons (+) and (-) to the render panel
-        setupZoomButtons();
+        // --- 5. SETUP LAYOUT (Place panels on screen) ---
 
-        // Add RenderPanel to a ScrollPane (Center)
+        // CENTER: Render View (with HUD Buttons)
+        setupZoomButtons(); // Add buttons to renderPanel
         add(new JScrollPane(renderPanel), BorderLayout.CENTER);
 
-        // --- 6. WEST: Scene Outliner ---
-        outlinerPanel = new OutlinerPanel(onRenderRequest);
+        // WEST: Outliner (Already created, just adding it)
         add(outlinerPanel, BorderLayout.WEST);
 
-        // --- 7. EAST: Tabbed Properties ---
+        // EAST: Tabbed Properties
         JTabbedPane tabbedPane = new JTabbedPane();
-        tabbedPane.setPreferredSize(new Dimension(300, 0)); // Fixed width sidebar
+        tabbedPane.setPreferredSize(new Dimension(300, 0));
 
-        // Tab 1: Global Render Settings (Already created above)
         tabbedPane.addTab("Render", settingsPanel);
-
-        // Tab 2: Object Inspector
-        inspectorPanel = new ObjectInspectorPanel(onRenderRequest);
         tabbedPane.addTab("Object", inspectorPanel);
 
         add(tabbedPane, BorderLayout.EAST);
 
-        // --- 8. Event Wiring ---
-        // Link the Outliner selection to the Inspector
+        // --- 6. EVENT WIRING ---
+        // Link Outliner selection to Inspector and RenderPanel
         outlinerPanel.getList().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
-                // Pass selected object to inspector
-                inspectorPanel.inspect(outlinerPanel.getList().getSelectedValue());
+                Hittable selectedObj = outlinerPanel.getList().getSelectedValue();
 
-                // Auto-switch to Object tab if something is selected
-                if (outlinerPanel.getList().getSelectedValue() != null) {
+                // Show properties
+                inspectorPanel.inspect(selectedObj);
+
+                // Show Gizmo
+                renderPanel.setSelectedObject(selectedObj);
+
+                // Auto-switch tab
+                if (selectedObj != null) {
                     tabbedPane.setSelectedIndex(1);
                 }
             }
         });
 
-        // --- 9. Finalize Window ---
-        pack(); // Adjust size to fit components
-        setLocationRelativeTo(null); // Center on screen
+        // --- 7. Finalize Window ---
+        pack();
+        setLocationRelativeTo(null);
     }
 
     /**
      * Creates floating zoom buttons on the bottom-right of the render panel.
-     * Uses GridBagLayout to position them as an overlay (HUD).
      */
     private void setupZoomButtons() {
         JPanel hudPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 5));
         hudPanel.setOpaque(false); // Transparent background
 
-        // Zoom In Button (+)
         JButton zoomInBtn = createHudButton("+");
         zoomInBtn.addActionListener(e -> cameraController.zoomIn());
 
-        // Zoom Out Button (-)
         JButton zoomOutBtn = createHudButton("-");
         zoomOutBtn.addActionListener(e -> cameraController.zoomOut());
 
         hudPanel.add(zoomInBtn);
         hudPanel.add(zoomOutBtn);
 
-        // Positioning logic (Bottom-Right Corner)
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;
         gbc.gridy = 0;
-        gbc.weightx = 1.0; // Push to right edge
-        gbc.weighty = 1.0; // Push to bottom edge
-        gbc.anchor = GridBagConstraints.LAST_LINE_END; // Anchor to bottom-right
-        gbc.insets = new Insets(0, 0, 10, 10); // Padding
+        gbc.weightx = 1.0;
+        gbc.weighty = 1.0;
+        gbc.anchor = GridBagConstraints.LAST_LINE_END;
+        gbc.insets = new Insets(0, 0, 10, 10);
 
         renderPanel.add(hudPanel, gbc);
     }
 
-    /**
-     * Helper to style the HUD buttons (Semi-transparent, Monospaced font).
-     */
     private JButton createHudButton(String text) {
         JButton btn = new JButton(text);
         btn.setFont(new Font("Monospaced", Font.BOLD, 16));
         btn.setPreferredSize(new Dimension(40, 40));
         btn.setFocusPainted(false);
-        btn.setBackground(new Color(0, 0, 0, 150)); // Semi-transparent black
+        btn.setBackground(new Color(0, 0, 0, 150));
         btn.setForeground(Color.WHITE);
         btn.setBorder(BorderFactory.createLineBorder(new Color(100, 100, 100)));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -173,29 +202,22 @@ public class MainFrame extends JFrame {
     // MENU BAR & FILE I/O OPERATIONS
     // ============================================================================================
 
-    /**
-     * Creates the top menu bar with File operations.
-     */
     private JMenuBar createMenuBar(Runnable onRenderRequest) {
         JMenuBar menuBar = new JMenuBar();
         JMenu fileMenu = new JMenu("File");
 
-        // NEW PROJECT: Clears the scene
         JMenuItem newItem = new JMenuItem("New Project");
         newItem.addActionListener(e -> {
             Scene.getInstance().clear();
             onRenderRequest.run();
         });
 
-        // OPEN PROJECT: Loads .ray file
         JMenuItem openItem = new JMenuItem("Open Project...");
         openItem.addActionListener(e -> openProject(onRenderRequest));
 
-        // SAVE PROJECT: Saves .ray file
         JMenuItem saveItem = new JMenuItem("Save Project...");
         saveItem.addActionListener(e -> saveProject());
 
-        // EXPORT IMAGE: Saves .png
         JMenuItem saveImgItem = new JMenuItem("Export Image (PNG)...");
         saveImgItem.addActionListener(e -> saveRenderedImage());
 
@@ -210,9 +232,6 @@ public class MainFrame extends JFrame {
         return menuBar;
     }
 
-    /**
-     * Serializes the current scene to a file using Java Serialization.
-     */
     private void saveProject() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("Save Project File");
@@ -235,9 +254,6 @@ public class MainFrame extends JFrame {
         }
     }
 
-    /**
-     * Deserializes a scene from a file and updates the application state.
-     */
     private void openProject(Runnable onRenderRequest) {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("Open Project File");
@@ -258,9 +274,6 @@ public class MainFrame extends JFrame {
         }
     }
 
-    /**
-     * Exports the current render buffer to a PNG image.
-     */
     private void saveRenderedImage() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("Export Render Output");

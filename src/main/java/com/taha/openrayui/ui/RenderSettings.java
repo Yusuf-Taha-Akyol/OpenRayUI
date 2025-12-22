@@ -3,7 +3,8 @@ package com.taha.openrayui.ui;
 import com.taha.openrayui.math.Vec3;
 
 /**
- * Kullanıcının değiştirebileceği tüm ayarları tutan model sınıfı.
+ * A Singleton configuration class acting as the "Single Source of Truth" for rendering parameters.
+ * It ensures that both the Ray Tracing Engine and the UI Helpers (Gizmos) use the exact same values.
  */
 public class RenderSettings {
     public int imageWidth = 400;
@@ -13,7 +14,7 @@ public class RenderSettings {
 
     public Vec3 lookFrom = new Vec3(0, 0, 1);
     public Vec3 lookAt = new Vec3(0, 0, -1);
-    public double vFov = 90.0;
+    public double vFov = 20.0;
 
     private static RenderSettings instance;
 
