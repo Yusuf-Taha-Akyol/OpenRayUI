@@ -1,8 +1,12 @@
-package com.taha.openrayui.ui;
+package com.taha.openrayui.ui.controllers;
 
 import com.taha.openrayui.geometry.Hittable;
 import com.taha.openrayui.geometry.Sphere;
 import com.taha.openrayui.math.Vec3;
+import com.taha.openrayui.ui.RenderSettings;
+import com.taha.openrayui.ui.components.OutlinerPanel;
+import com.taha.openrayui.ui.components.RenderPanel;
+import com.taha.openrayui.utils.CameraHelper;
 
 import java.awt.*;
 import java.awt.event.MouseAdapter;

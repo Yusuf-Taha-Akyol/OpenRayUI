@@ -1,6 +1,7 @@
-package com.taha.openrayui.ui;
+package com.taha.openrayui.ui.components;
 
 import com.taha.openrayui.math.Vec3;
+import com.taha.openrayui.ui.RenderSettings;
 
 import javax.swing.*;
 import javax.swing.border.CompoundBorder;

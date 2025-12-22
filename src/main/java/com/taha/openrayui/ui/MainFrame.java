@@ -1,92 +1,72 @@
 package com.taha.openrayui.ui;
 
 import com.taha.openrayui.geometry.Hittable;
-import com.taha.openrayui.geometry.HittableList;
+import com.taha.openrayui.io.ImageExporter;
+import com.taha.openrayui.io.SceneSerializer;
 import com.taha.openrayui.model.Scene;
+import com.taha.openrayui.ui.components.ObjectInspectorPanel;
+import com.taha.openrayui.ui.components.OutlinerPanel;
+import com.taha.openrayui.ui.components.RenderPanel;
+import com.taha.openrayui.ui.components.SettingsPanel;
+import com.taha.openrayui.ui.controllers.CameraInputHandler;
+import com.taha.openrayui.ui.controllers.GizmoController;
 
-import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 
 /**
- * The main application window for OpenRayUI.
- * Acts as the central hub connecting the Rendering Engine, UI Panels, and User Inputs.
+ * The main application window.
+ * Refactored: File I/O logic has been moved to the 'io' package.
  */
 public class MainFrame extends JFrame {
 
-    // --- UI Components ---
-    private final RenderPanel renderPanel;           // Displays the ray-traced image & Gizmos
-    private final SettingsPanel settingsPanel;       // Global render settings (Quality, Camera)
-    private final OutlinerPanel outlinerPanel;       // List of objects in the scene
-    private final ObjectInspectorPanel inspectorPanel; // Editor for selected object properties
-
-    // --- Controllers ---
+    private final RenderPanel renderPanel;
+    private final SettingsPanel settingsPanel;
+    private final OutlinerPanel outlinerPanel;
+    private final ObjectInspectorPanel inspectorPanel;
     private final CameraInputHandler cameraController;
 
     public MainFrame(Runnable onRenderRequest) {
-        // --- 1. Window Configuration ---
+        // --- 1. Window Config ---
         setTitle("OpenRayUI - Java Ray Tracer Studio");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(true);
         setMinimumSize(new Dimension(1000, 600));
 
-        // --- 2. Menu Bar Setup ---
+        // --- 2. Menu ---
         setJMenuBar(createMenuBar(onRenderRequest));
 
-        // Use BorderLayout to organize the main panels
         setLayout(new BorderLayout());
 
-        // =================================================================================
-        // 3. INITIALIZE ALL PANELS FIRST (To avoid "variable not initialized" errors)
-        // =================================================================================
-
-        // A. Settings Panel
+        // --- 3. Initialize Panels ---
         settingsPanel = new SettingsPanel(onRenderRequest, this::saveRenderedImage);
-
-        // B. Render Viewport
         renderPanel = new RenderPanel(800, 450);
-        renderPanel.setLayout(new GridBagLayout()); // Use GridBag for overlaying HUD buttons
-
-        // C. Outliner Panel (CRITICAL: Must be initialized BEFORE controllers!)
+        renderPanel.setLayout(new GridBagLayout());
         outlinerPanel = new OutlinerPanel(onRenderRequest);
-
-        // D. Inspector Panel
         inspectorPanel = new ObjectInspectorPanel(onRenderRequest);
 
-        // Configure Global Settings
         RenderSettings.getInstance().imageWidth = 800;
         RenderSettings.getInstance().imageHeight = 450;
 
-        // =================================================================================
-        // 4. SETUP CONTROLLERS (Now all panels exist)
-        // =================================================================================
-
-        // A. Gizmo Controller (Handles Object Manipulation)
-        // We can safely pass 'outlinerPanel' now because it was created in step 3.C
+        // --- 4. Controllers ---
         GizmoController gizmoController = new GizmoController(
                 renderPanel, outlinerPanel, onRenderRequest, onRenderRequest
         );
 
-        // Define what happens when the Camera moves (Sync UI & Redraw)
         Runnable onCameraMove = () -> {
-            settingsPanel.updateCameraFields(); // Sync Text Fields
-            onRenderRequest.run();              // Re-render scene
-            renderPanel.repaint();              // Redraw Gizmo arrows at new position
+            settingsPanel.updateCameraFields();
+            onRenderRequest.run();
+            renderPanel.repaint();
         };
 
-        // B. Camera Controller (Handles Navigation)
-        // Wraps Gizmo logic to prioritize Object Moving over Camera Moving
         cameraController = new CameraInputHandler(onCameraMove, onCameraMove) {
             @Override
             public void mousePressed(MouseEvent e) {
-                // Try Gizmo first
                 gizmoController.mousePressed(e);
-
-                // If Gizmo didn't consume the click, allow Camera orbit
                 if (!gizmoController.isInteracting()) {
                     super.mousePressed(e);
                 }
@@ -101,66 +81,46 @@ public class MainFrame extends JFrame {
             @Override
             public void mouseDragged(MouseEvent e) {
                 if (gizmoController.isInteracting()) {
-                    gizmoController.mouseDragged(e); // Move Object
+                    gizmoController.mouseDragged(e);
                 } else {
-                    super.mouseDragged(e); // Move Camera
+                    super.mouseDragged(e);
                 }
             }
         };
 
-        // Attach Controller to RenderPanel
         renderPanel.addMouseListener(cameraController);
         renderPanel.addMouseMotionListener(cameraController);
         renderPanel.addMouseWheelListener(cameraController);
 
-        // --- 5. SETUP LAYOUT (Place panels on screen) ---
-
-        // CENTER: Render View (with HUD Buttons)
-        setupZoomButtons(); // Add buttons to renderPanel
+        // --- 5. Layout ---
+        setupZoomButtons();
         add(new JScrollPane(renderPanel), BorderLayout.CENTER);
-
-        // WEST: Outliner (Already created, just adding it)
         add(outlinerPanel, BorderLayout.WEST);
 
-        // EAST: Tabbed Properties
         JTabbedPane tabbedPane = new JTabbedPane();
         tabbedPane.setPreferredSize(new Dimension(300, 0));
-
         tabbedPane.addTab("Render", settingsPanel);
         tabbedPane.addTab("Object", inspectorPanel);
-
         add(tabbedPane, BorderLayout.EAST);
 
-        // --- 6. EVENT WIRING ---
-        // Link Outliner selection to Inspector and RenderPanel
+        // --- 6. Events ---
         outlinerPanel.getList().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 Hittable selectedObj = outlinerPanel.getList().getSelectedValue();
-
-                // Show properties
                 inspectorPanel.inspect(selectedObj);
-
-                // Show Gizmo
                 renderPanel.setSelectedObject(selectedObj);
-
-                // Auto-switch tab
-                if (selectedObj != null) {
-                    tabbedPane.setSelectedIndex(1);
-                }
+                if (selectedObj != null) tabbedPane.setSelectedIndex(1);
             }
         });
 
-        // --- 7. Finalize Window ---
         pack();
         setLocationRelativeTo(null);
     }
 
-    /**
-     * Creates floating zoom buttons on the bottom-right of the render panel.
-     */
+    // --- ZOOM BUTTONS ---
     private void setupZoomButtons() {
         JPanel hudPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 5));
-        hudPanel.setOpaque(false); // Transparent background
+        hudPanel.setOpaque(false);
 
         JButton zoomInBtn = createHudButton("+");
         zoomInBtn.addActionListener(e -> cameraController.zoomIn());
@@ -172,13 +132,9 @@ public class MainFrame extends JFrame {
         hudPanel.add(zoomOutBtn);
 
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.weightx = 1.0;
-        gbc.weighty = 1.0;
+        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 1.0; gbc.weighty = 1.0;
         gbc.anchor = GridBagConstraints.LAST_LINE_END;
         gbc.insets = new Insets(0, 0, 10, 10);
-
         renderPanel.add(hudPanel, gbc);
     }
 
@@ -194,14 +150,9 @@ public class MainFrame extends JFrame {
         return btn;
     }
 
-    public RenderPanel getRenderPanel() {
-        return renderPanel;
-    }
+    public RenderPanel getRenderPanel() { return renderPanel; }
 
-    // ============================================================================================
-    // MENU BAR & FILE I/O OPERATIONS
-    // ============================================================================================
-
+    // --- MENU BAR ---
     private JMenuBar createMenuBar(Runnable onRenderRequest) {
         JMenuBar menuBar = new JMenuBar();
         JMenu fileMenu = new JMenu("File");
@@ -232,6 +183,8 @@ public class MainFrame extends JFrame {
         return menuBar;
     }
 
+    // --- I/O DELEGATION (REFACTORED) ---
+
     private void saveProject() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("Save Project File");
@@ -239,13 +192,9 @@ public class MainFrame extends JFrame {
         fileChooser.setFileFilter(new FileNameExtensionFilter("Ray Tracing Project (.ray)", "ray"));
 
         if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            File file = fileChooser.getSelectedFile();
-            if (!file.getName().endsWith(".ray")) {
-                file = new File(file.getAbsolutePath() + ".ray");
-            }
-
-            try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(file))) {
-                oos.writeObject(Scene.getInstance().getWorld());
+            try {
+                // Delegate to SceneSerializer
+                SceneSerializer.save(fileChooser.getSelectedFile());
                 JOptionPane.showMessageDialog(this, "Project saved successfully!");
             } catch (IOException ex) {
                 ex.printStackTrace();
@@ -260,11 +209,9 @@ public class MainFrame extends JFrame {
         fileChooser.setFileFilter(new FileNameExtensionFilter("Ray Tracing Project (.ray)", "ray"));
 
         if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            File file = fileChooser.getSelectedFile();
-
-            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
-                HittableList loadedWorld = (HittableList) ois.readObject();
-                Scene.getInstance().loadSceneFromList(loadedWorld);
+            try {
+                // Delegate to SceneSerializer
+                SceneSerializer.load(fileChooser.getSelectedFile());
                 onRenderRequest.run();
                 JOptionPane.showMessageDialog(this, "Project loaded successfully!");
             } catch (IOException | ClassNotFoundException ex) {
@@ -281,15 +228,13 @@ public class MainFrame extends JFrame {
         fileChooser.setFileFilter(new FileNameExtensionFilter("PNG Images", "png"));
 
         if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            File fileToSave = fileChooser.getSelectedFile();
-            if (!fileToSave.getAbsolutePath().toLowerCase().endsWith(".png")) {
-                fileToSave = new File(fileToSave.getAbsolutePath() + ".png");
-            }
             try {
-                ImageIO.write(renderPanel.getImage(), "png", fileToSave);
-                JOptionPane.showMessageDialog(this, "Image exported: " + fileToSave.getName());
+                // Delegate to ImageExporter
+                ImageExporter.saveImage(renderPanel.getImage(), fileChooser.getSelectedFile());
+                JOptionPane.showMessageDialog(this, "Image exported successfully!");
             } catch (IOException ex) {
                 ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Error exporting image: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }

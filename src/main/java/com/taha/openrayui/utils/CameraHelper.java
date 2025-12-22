@@ -1,6 +1,7 @@
-package com.taha.openrayui.ui;
+package com.taha.openrayui.utils;
 
 import com.taha.openrayui.math.Vec3;
+import com.taha.openrayui.ui.RenderSettings;
 
 import java.awt.*;
 

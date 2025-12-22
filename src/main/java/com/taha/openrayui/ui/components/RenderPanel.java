@@ -1,8 +1,9 @@
-package com.taha.openrayui.ui;
+package com.taha.openrayui.ui.components;
 
 import com.taha.openrayui.geometry.Hittable;
 import com.taha.openrayui.geometry.Sphere;
 import com.taha.openrayui.math.Vec3;
+import com.taha.openrayui.utils.CameraHelper;
 
 import javax.swing.*;
 import java.awt.*;
