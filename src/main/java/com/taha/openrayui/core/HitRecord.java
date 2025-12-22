@@ -27,4 +27,17 @@ public class HitRecord {
         frontFace = r.direction().dot(outwardNormal) < 0;
         normal = frontFace ? outwardNormal : outwardNormal.mul(-1);
     }
+
+    /**
+     * Copies data from another HitRecord into this one.
+     * Essential for tracking the closest hit in a list of objects.
+     * This method resolves the "cannot find symbol" error.
+     */
+    public void copyFrom(HitRecord rec) {
+        this.p = rec.p;
+        this.normal = rec.normal;
+        this.t = rec.t;
+        this.frontFace = rec.frontFace;
+        this.mat = rec.mat;
+    }
 }

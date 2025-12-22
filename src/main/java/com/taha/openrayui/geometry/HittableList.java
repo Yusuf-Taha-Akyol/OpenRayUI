@@ -7,11 +7,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A list of Hittable objects (e.g., spheres).
- * Checks intersections against all objects in the list and returns the closest hit.
+ * Represents a list of hittable objects (the world).
+ * Manages the collection of objects that the ray tracer interacts with.
  */
 public class HittableList extends Hittable {
-    public final List<Hittable> objects = new ArrayList<>();
+
+    // Internal list to store objects
+    private final List<Hittable> objects = new ArrayList<>();
 
     public HittableList() {}
 
@@ -19,12 +21,31 @@ public class HittableList extends Hittable {
         add(object);
     }
 
+    public void clear() {
+        objects.clear();
+    }
+
+    /**
+     * Adds an object to the scene.
+     */
     public void add(Hittable object) {
         objects.add(object);
     }
 
-    public void clear() {
-        objects.clear();
+    /**
+     * Removes an object from the scene.
+     * Essential for the delete functionality in the UI.
+     */
+    public void remove(Hittable object) {
+        objects.remove(object);
+    }
+
+    public int size() {
+        return objects.size();
+    }
+
+    public Hittable get(int index) {
+        return objects.get(index);
     }
 
     @Override
@@ -34,17 +55,10 @@ public class HittableList extends Hittable {
         double closestSoFar = tMax;
 
         for (Hittable object : objects) {
-            // Check each object. Only update if we hit something CLOSER than before.
             if (object.hit(r, tMin, closestSoFar, tempRec)) {
                 hitAnything = true;
                 closestSoFar = tempRec.t;
-
-                // Copy details to the main record
-                rec.p = tempRec.p;
-                rec.normal = tempRec.normal;
-                rec.t = tempRec.t;
-                rec.frontFace = tempRec.frontFace;
-                rec.mat = tempRec.mat;
+                rec.copyFrom(tempRec);
             }
         }
 
