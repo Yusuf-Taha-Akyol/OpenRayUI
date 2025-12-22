@@ -5,12 +5,22 @@ import com.taha.openrayui.core.ScatterResult;
 import com.taha.openrayui.math.Ray;
 import com.taha.openrayui.math.Vec3;
 
+/**
+ * Represents a transparent material (glass, water, diamond).
+ */
 public class Dielectric implements Material {
-    private final double ir; // Index of Refraction (e.g., 1.5 for glass)
+
+    private double ir; // Index of Refraction (e.g., 1.5 for glass)
 
     public Dielectric(double indexOfRefraction) {
         this.ir = indexOfRefraction;
     }
+
+    // --- GETTER & SETTER ---
+
+    public double getIr() { return ir; }
+
+    public void setIr(double ir) { this.ir = ir; }
 
     @Override
     public ScatterResult scatter(Ray rIn, HitRecord rec) {

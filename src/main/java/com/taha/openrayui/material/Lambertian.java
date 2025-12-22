@@ -5,12 +5,30 @@ import com.taha.openrayui.core.ScatterResult;
 import com.taha.openrayui.math.Ray;
 import com.taha.openrayui.math.Vec3;
 
+/**
+ * Represents a matte (diffuse) material.
+ * It scatters light in random directions.
+ */
 public class Lambertian implements Material {
-    private final Vec3 albedo; // The color of the material
+
+    // Not 'final' anymore, allowing runtime color changes
+    private Vec3 albedo;
 
     public Lambertian(Vec3 albedo) {
         this.albedo = albedo;
     }
+
+    // --- GETTERS & SETTERS (Required for Object Inspector) ---
+
+    public Vec3 getAlbedo() {
+        return albedo;
+    }
+
+    public void setAlbedo(Vec3 albedo) {
+        this.albedo = albedo;
+    }
+
+    // --- SCATTER LOGIC ---
 
     @Override
     public ScatterResult scatter(Ray rIn, HitRecord rec) {

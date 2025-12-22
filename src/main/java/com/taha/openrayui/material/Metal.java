@@ -5,12 +5,28 @@ import com.taha.openrayui.core.ScatterResult;
 import com.taha.openrayui.math.Ray;
 import com.taha.openrayui.math.Vec3;
 
+/**
+ * Represents a reflective metal material.
+ */
 public class Metal implements Material {
-    private final Vec3 albedo;
-    private final double fuzz; // 0 = Perfect mirror, 1 = Very fuzzy
+
+    private Vec3 albedo;
+    private double fuzz; // 0 = Perfect mirror, 1 = Very fuzzy
 
     public Metal(Vec3 albedo, double fuzz) {
         this.albedo = albedo;
+        this.fuzz = (fuzz < 1) ? fuzz : 1;
+    }
+
+    // --- GETTERS & SETTERS ---
+
+    public Vec3 getAlbedo() { return albedo; }
+
+    public void setAlbedo(Vec3 albedo) { this.albedo = albedo; }
+
+    public double getFuzz() { return fuzz; }
+
+    public void setFuzz(double fuzz) {
         this.fuzz = (fuzz < 1) ? fuzz : 1;
     }
 
@@ -18,7 +34,7 @@ public class Metal implements Material {
     public ScatterResult scatter(Ray rIn, HitRecord rec) {
         Vec3 reflected = reflect(rIn.direction().unitVector(), rec.normal);
 
-        // Add fuzziness
+        // Add fuzziness to the reflection
         Ray scattered = new Ray(rec.p, reflected.add(randomInUnitSphere().mul(fuzz)));
 
         if (scattered.direction().dot(rec.normal) > 0) {

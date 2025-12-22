@@ -37,6 +37,8 @@ public class Sphere extends Hittable {
 
     public Material getMaterial() { return mat; }
 
+    public void setMaterial(Material mat) { this.mat = mat; }
+
     // --- RAY TRACING LOGIC ---
 
     @Override
