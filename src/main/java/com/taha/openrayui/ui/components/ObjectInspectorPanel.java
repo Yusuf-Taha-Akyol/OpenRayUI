@@ -1,267 +1,201 @@
 package com.taha.openrayui.ui.components;
 
+import com.taha.openrayui.geometry.Box; // Bizim Kutu Geometrimiz
 import com.taha.openrayui.geometry.Hittable;
 import com.taha.openrayui.geometry.Sphere;
-import com.taha.openrayui.material.Dielectric;
-import com.taha.openrayui.material.Lambertian;
-import com.taha.openrayui.material.Material;
-import com.taha.openrayui.material.Metal;
+import com.taha.openrayui.material.*;
 import com.taha.openrayui.math.Vec3;
 
 import javax.swing.*;
+import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
+import javax.swing.border.TitledBorder;
 import java.awt.*;
-import java.util.function.DoubleConsumer;
-import java.util.function.Consumer;
+import java.util.Locale;
 
 /**
- * A robust property editor panel for scene objects.
- * Allows users to modify position, size, and material properties (Color, Type, etc.) in real-time.
+ * Panel to view and edit properties of the selected object.
+ * Fixes: Uses Getters/Setters for private material fields.
+ * Fixes: Resolves 'Box' name conflict using full package name for javax.swing.Box.
  */
 public class ObjectInspectorPanel extends JPanel {
 
-    // Callback to trigger a re-render whenever a property changes
-    private final Runnable onSceneUpdate;
-    private JPanel contentPanel;
+    private final Runnable onUpdate;
+    private Hittable currentObject;
 
-    public ObjectInspectorPanel(Runnable onSceneUpdate) {
-        this.onSceneUpdate = onSceneUpdate;
-        setLayout(new BorderLayout());
-        setBorder(new EmptyBorder(10, 10, 10, 10));
+    // Container for dynamic fields (Position, Radius, Size etc.)
+    private final JPanel dynamicPanel;
 
-        // Initial state: Display a message when no object is selected
-        add(new JLabel("No object selected", SwingConstants.CENTER), BorderLayout.CENTER);
+    // Material UI components
+    private JComboBox<String> materialCombo;
+
+    public ObjectInspectorPanel(Runnable onUpdate) {
+        this.onUpdate = onUpdate;
+        setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+        setBorder(new CompoundBorder(new TitledBorder("Object Properties"), new EmptyBorder(10, 10, 10, 10)));
+
+        dynamicPanel = new JPanel();
+        dynamicPanel.setLayout(new BoxLayout(dynamicPanel, BoxLayout.Y_AXIS));
+
+        add(dynamicPanel);
+
+        // ÇAKIŞMA ÇÖZÜMÜ: Swing Box için tam yol belirtiyoruz
+        add(javax.swing.Box.createVerticalGlue());
     }
 
     /**
-     * Inspects the given object and builds the corresponding UI.
-     * @param object The selected scene object (e.g., Sphere).
+     * Refreshes the inspector UI for the given object.
      */
-    public void inspect(Hittable object) {
-        removeAll(); // Clear previous UI elements
+    public void inspect(Hittable obj) {
+        this.currentObject = obj;
+        dynamicPanel.removeAll(); // Clear old fields
 
-        if (object == null) {
-            add(new JLabel("No object selected", SwingConstants.CENTER));
-        } else if (object instanceof Sphere) {
-            buildSphereUI((Sphere) object);
-        } else {
-            add(new JLabel("Unknown Object Type", SwingConstants.CENTER));
+        if (obj == null) {
+            dynamicPanel.add(new JLabel("No object selected"));
+        }
+        else if (obj instanceof Sphere) {
+            setupSphereUI((Sphere) obj);
+            setupMaterialUI(obj);
+        }
+        else if (obj instanceof Box) {
+            setupBoxUI((Box) obj);
+            setupMaterialUI(obj);
         }
 
-        revalidate();
-        repaint();
+        dynamicPanel.revalidate();
+        dynamicPanel.repaint();
     }
 
-    /**
-     * Builds the specific UI controls for a Sphere object.
-     */
-    private void buildSphereUI(Sphere sphere) {
-        // Main container for the properties, stacked vertically
-        contentPanel = new JPanel();
-        contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
+    // --- SPHERE UI LOGIC ---
+    private void setupSphereUI(Sphere sphere) {
+        dynamicPanel.add(new JLabel("Type: Sphere"));
+        dynamicPanel.add(javax.swing.Box.createVerticalStrut(10));
 
-        // --- SECTION: BASIC PROPERTIES ---
-        addHeader("Sphere Properties");
-
-        // 1. Name Field
-        addLabel("Name:");
-        JTextField nameField = new JTextField(sphere.getName());
-        nameField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-        nameField.addActionListener(e -> sphere.setName(nameField.getText()));
-        addComponent(nameField);
-
-        // 2. Position Fields (X, Y, Z)
-        addSeparator();
-        addLabel("Position (X, Y, Z):");
-
-        // Update X
-        addSmartField(sphere.getCenter().x, val -> {
-            sphere.setCenter(new Vec3(val, sphere.getCenter().y, sphere.getCenter().z));
-            onSceneUpdate.run();
-        });
-        // Update Y
-        addSmartField(sphere.getCenter().y, val -> {
-            sphere.setCenter(new Vec3(sphere.getCenter().x, val, sphere.getCenter().z));
-            onSceneUpdate.run();
-        });
-        // Update Z
-        addSmartField(sphere.getCenter().z, val -> {
-            sphere.setCenter(new Vec3(sphere.getCenter().x, sphere.getCenter().y, val));
-            onSceneUpdate.run();
+        // Center Position
+        dynamicPanel.add(new JLabel("Center (X, Y, Z):"));
+        addVec3Field(sphere.getCenter(), val -> {
+            sphere.setCenter(val);
+            onUpdate.run();
         });
 
-        // 3. Radius Field
-        addSeparator();
-        addLabel("Radius:");
-        addSmartField(sphere.getRadius(), val -> {
+        // Radius
+        dynamicPanel.add(new JLabel("Radius:"));
+        addDoubleField(sphere.getRadius(), val -> {
             sphere.setRadius(val);
-            onSceneUpdate.run();
+            onUpdate.run();
+        });
+    }
+
+    // --- BOX UI LOGIC ---
+    private void setupBoxUI(Box box) {
+        dynamicPanel.add(new JLabel("Type: Box"));
+        dynamicPanel.add(javax.swing.Box.createVerticalStrut(10));
+
+        // Center Position
+        dynamicPanel.add(new JLabel("Center (X, Y, Z):"));
+        addVec3Field(box.getCenter(), newCenter -> {
+            // Move the box while keeping its size
+            box.setTransform(newCenter, box.getSize());
+            onUpdate.run();
         });
 
-        // --- SECTION: MATERIAL PROPERTIES ---
-        addSeparator();
-        addHeader("Material");
-
-        // 4. Material Type Dropdown
-        String[] types = {"Lambertian (Matte)", "Metal (Shiny)", "Dielectric (Glass)"};
-        JComboBox<String> typeBox = new JComboBox<>(types);
-
-        // Select the current material type in the dropdown
-        if (sphere.getMaterial() instanceof Lambertian) typeBox.setSelectedIndex(0);
-        else if (sphere.getMaterial() instanceof Metal) typeBox.setSelectedIndex(1);
-        else if (sphere.getMaterial() instanceof Dielectric) typeBox.setSelectedIndex(2);
-
-        // Handle Material Change
-        typeBox.addActionListener(e -> {
-            int idx = typeBox.getSelectedIndex();
-            Material newMat;
-
-            // Create a new default material based on selection
-            if (idx == 0) newMat = new Lambertian(new Vec3(0.5, 0.5, 0.5)); // Grey Matte
-            else if (idx == 1) newMat = new Metal(new Vec3(0.8, 0.8, 0.8), 0.1); // Shiny Metal
-            else newMat = new Dielectric(1.5); // Standard Glass
-
-            sphere.setMaterial(newMat);
-
-            // Rebuild the UI to show specific properties for the new material
-            inspect(sphere);
-            onSceneUpdate.run();
+        // Size Dimensions
+        dynamicPanel.add(new JLabel("Size (W, H, D):"));
+        addVec3Field(box.getSize(), newSize -> {
+            // Resize the box relative to its center
+            box.setTransform(box.getCenter(), newSize);
+            onUpdate.run();
         });
-        addComponent(typeBox);
+    }
 
-        // 5. Dynamic Material Properties (Color, Fuzz, Refraction)
-        Material mat = sphere.getMaterial();
+    // --- MATERIAL UI LOGIC ---
+    private void setupMaterialUI(Hittable obj) {
+        dynamicPanel.add(new JSeparator());
+        dynamicPanel.add(javax.swing.Box.createVerticalStrut(10));
+        dynamicPanel.add(new JLabel("Material:"));
 
+        Material mat = obj.getMaterial();
+        String[] matTypes = {"Lambertian (Matte)", "Metal", "Dielectric (Glass)"};
+        materialCombo = new JComboBox<>(matTypes);
+
+        // Select current material type in combobox
+        if (mat instanceof Lambertian) materialCombo.setSelectedIndex(0);
+        else if (mat instanceof Metal) materialCombo.setSelectedIndex(1);
+        else if (mat instanceof Dielectric) materialCombo.setSelectedIndex(2);
+
+        materialCombo.addActionListener(e -> {
+            int idx = materialCombo.getSelectedIndex();
+            Material newMat = new Lambertian(new Vec3(0.5, 0.5, 0.5)); // Default
+
+            if (idx == 0) newMat = new Lambertian(new Vec3(0.5, 0.5, 0.5));
+            else if (idx == 1) newMat = new Metal(new Vec3(0.8, 0.8, 0.8), 0.0);
+            else if (idx == 2) newMat = new Dielectric(1.5);
+
+            obj.setMaterial(newMat);
+            inspect(obj); // Refresh UI
+            onUpdate.run();
+        });
+
+        dynamicPanel.add(materialCombo);
+        dynamicPanel.add(javax.swing.Box.createVerticalStrut(5));
+
+        // HATA DÜZELTME: Getter ve Setter kullanımı
         if (mat instanceof Lambertian) {
-            Lambertian lamb = (Lambertian) mat;
-            // Color Picker for Matte
-            addColorPicker("Color:", lamb.getAlbedo(), c -> {
-                lamb.setAlbedo(c);
-                onSceneUpdate.run();
-            });
+            Lambertian l = (Lambertian) mat;
+            dynamicPanel.add(new JLabel("Color (R, G, B):"));
+            // l.albedo yerine l.getAlbedo()
+            addVec3Field(l.getAlbedo(), col -> { l.setAlbedo(col); onUpdate.run(); });
         }
         else if (mat instanceof Metal) {
-            Metal met = (Metal) mat;
-            // Color Picker for Metal
-            addColorPicker("Color:", met.getAlbedo(), c -> {
-                met.setAlbedo(c);
-                onSceneUpdate.run();
-            });
-            // Fuzziness Slider/Field
-            addLabel("Fuzziness (0.0 = Mirror, 1.0 = Matte):");
-            addSmartField(met.getFuzz(), val -> {
-                met.setFuzz(val);
-                onSceneUpdate.run();
-            });
+            Metal m = (Metal) mat;
+            dynamicPanel.add(new JLabel("Color (R, G, B):"));
+            // m.albedo yerine m.getAlbedo()
+            addVec3Field(m.getAlbedo(), col -> { m.setAlbedo(col); onUpdate.run(); });
+
+            dynamicPanel.add(new JLabel("Fuzziness (0.0 - 1.0):"));
+            // m.fuzz yerine m.getFuzz()
+            addDoubleField(m.getFuzz(), f -> { m.setFuzz(f); onUpdate.run(); });
         }
         else if (mat instanceof Dielectric) {
-            Dielectric diel = (Dielectric) mat;
-            // Refraction Index Field
-            addLabel("Refraction Index (1.5 = Glass, 2.4 = Diamond):");
-            addSmartField(diel.getIr(), val -> {
-                diel.setIr(val);
-                onSceneUpdate.run();
-            });
+            Dielectric d = (Dielectric) mat;
+            dynamicPanel.add(new JLabel("Refraction Index (1.5 = Glass):"));
+            // d.ir yerine d.getIr()
+            addDoubleField(d.getIr(), ir -> { d.setIr(ir); onUpdate.run(); });
         }
-
-        // Add the content panel to the top of the layout
-        add(contentPanel, BorderLayout.NORTH);
     }
 
-    // --- UI HELPER METHODS ---
+    // --- HELPER METHODS ---
 
-    /**
-     * Adds a button that opens a color chooser dialog.
-     */
-    private void addColorPicker(String label, Vec3 colorVec, Consumer<Vec3> onPick) {
-        addLabel(label);
+    private void addVec3Field(Vec3 value, java.util.function.Consumer<Vec3> onCommit) {
+        JPanel p = new JPanel(new GridLayout(1, 3, 5, 0));
+        p.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
 
-        // Convert Vec3 (0.0-1.0) to Java AWT Color (0-255)
-        Color initialColor = new Color(
-                (float) Math.min(colorVec.x, 1.0),
-                (float) Math.min(colorVec.y, 1.0),
-                (float) Math.min(colorVec.z, 1.0)
-        );
+        JTextField tx = createSmartField(value.x, v -> onCommit.accept(new Vec3(v, value.y, value.z)));
+        JTextField ty = createSmartField(value.y, v -> onCommit.accept(new Vec3(value.x, v, value.z)));
+        JTextField tz = createSmartField(value.z, v -> onCommit.accept(new Vec3(value.x, value.y, v)));
 
-        JButton colorBtn = new JButton("Change Color");
-        colorBtn.setBackground(initialColor);
-        // Ensure text is visible based on background brightness
-        colorBtn.setForeground(isBright(initialColor) ? Color.BLACK : Color.WHITE);
+        p.add(tx); p.add(ty); p.add(tz);
+        dynamicPanel.add(p);
+        dynamicPanel.add(javax.swing.Box.createVerticalStrut(5));
+    }
 
-        colorBtn.addActionListener(e -> {
-            Color newColor = JColorChooser.showDialog(this, "Select Material Color", initialColor);
-            if (newColor != null) {
-                colorBtn.setBackground(newColor);
-                colorBtn.setForeground(isBright(newColor) ? Color.BLACK : Color.WHITE);
+    private void addDoubleField(double value, java.util.function.Consumer<Double> onCommit) {
+        JTextField t = createSmartField(value, onCommit);
+        dynamicPanel.add(t);
+        dynamicPanel.add(javax.swing.Box.createVerticalStrut(5));
+    }
 
-                // Convert back to Vec3 and trigger callback
-                onPick.accept(new Vec3(
-                        newColor.getRed() / 255.0,
-                        newColor.getGreen() / 255.0,
-                        newColor.getBlue() / 255.0
-                ));
-            }
+    private JTextField createSmartField(double val, java.util.function.Consumer<Double> onCommit) {
+        JTextField field = new JTextField(String.format(Locale.US, "%.2f", val));
+        field.addActionListener(e -> {
+            try { onCommit.accept(Double.parseDouble(field.getText())); } catch (Exception ex) {}
         });
-
-        addComponent(colorBtn);
-    }
-
-    // Determines if a color is bright to set contrasting text color
-    private boolean isBright(Color c) {
-        return (c.getRed() + c.getGreen() + c.getBlue()) / 3 > 128;
-    }
-
-    private void addHeader(String text) {
-        JLabel label = new JLabel(text);
-        label.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        label.setAlignmentX(Component.LEFT_ALIGNMENT);
-        contentPanel.add(label);
-        contentPanel.add(Box.createVerticalStrut(10));
-    }
-
-    private void addLabel(String text) {
-        JLabel label = new JLabel(text);
-        label.setAlignmentX(Component.LEFT_ALIGNMENT);
-        contentPanel.add(label);
-        contentPanel.add(Box.createVerticalStrut(5));
-    }
-
-    private void addComponent(JComponent comp) {
-        comp.setAlignmentX(Component.LEFT_ALIGNMENT);
-        contentPanel.add(comp);
-        contentPanel.add(Box.createVerticalStrut(10));
-    }
-
-    private void addSeparator() {
-        contentPanel.add(Box.createVerticalStrut(5));
-        JSeparator sep = new JSeparator();
-        sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 5));
-        contentPanel.add(sep);
-        contentPanel.add(Box.createVerticalStrut(10));
-    }
-
-    /**
-     * Creates a text field that triggers an action when Enter is pressed or focus is lost.
-     */
-    private void addSmartField(double val, DoubleConsumer action) {
-        JTextField field = new JTextField(String.valueOf(val));
-        field.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-        field.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        Runnable update = () -> {
-            try {
-                action.accept(Double.parseDouble(field.getText()));
-            } catch (NumberFormatException ignored) {
-                // Ignore invalid input (keep old value)
-            }
-        };
-
-        field.addActionListener(e -> update.run());
         field.addFocusListener(new java.awt.event.FocusAdapter() {
-            @Override public void focusLost(java.awt.event.FocusEvent e) { update.run(); }
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                try { onCommit.accept(Double.parseDouble(field.getText())); } catch (Exception ex) {}
+            }
         });
-
-        contentPanel.add(field);
-        contentPanel.add(Box.createVerticalStrut(5));
+        return field;
     }
 }

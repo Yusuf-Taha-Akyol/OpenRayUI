@@ -8,7 +8,7 @@ import com.taha.openrayui.math.Ray;
 import com.taha.openrayui.math.Vec3;
 import com.taha.openrayui.model.Scene;
 import com.taha.openrayui.ui.MainFrame;
-import com.taha.openrayui.ui.RenderSettings;
+import com.taha.openrayui.core.RenderSettings;
 
 import javax.swing.*;
 import java.awt.image.BufferedImage;
@@ -18,7 +18,6 @@ import java.awt.image.BufferedImage;
  * It initializes the UI with a modern dark theme and manages the multi-threaded rendering loop.
  */
 public class App {
-
     // The main application window (Static access allows the render loop to update it)
     private static MainFrame frame;
 

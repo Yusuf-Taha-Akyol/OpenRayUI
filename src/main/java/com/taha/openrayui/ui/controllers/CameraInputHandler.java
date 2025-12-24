@@ -1,7 +1,7 @@
 package com.taha.openrayui.ui.controllers;
 
 import com.taha.openrayui.math.Vec3;
-import com.taha.openrayui.ui.RenderSettings;
+import com.taha.openrayui.core.RenderSettings;
 
 import javax.swing.*;
 import java.awt.event.MouseAdapter;

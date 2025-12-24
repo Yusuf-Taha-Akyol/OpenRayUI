@@ -1,4 +1,4 @@
-package com.taha.openrayui.ui;
+package com.taha.openrayui.core;
 
 import com.taha.openrayui.math.Vec3;
 

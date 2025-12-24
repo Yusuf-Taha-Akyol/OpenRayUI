@@ -19,6 +19,18 @@ public class Vec3 implements Serializable {
         this.z = z;
     }
 
+    // --- NEW METHOD: Access by Index (Required for Box intersection loop) ---
+
+    /**
+     * Returns the component at the specified index (0=x, 1=y, 2=z).
+     * Useful for algorithms iterating over axes (like AABB intersection).
+     */
+    public double get(int index) {
+        if (index == 0) return x;
+        if (index == 1) return y;
+        return z;
+    }
+
     // --- Vector Operations ---
 
     // Adds two vectors: (x1+x2, y1+y2, z1+z2)

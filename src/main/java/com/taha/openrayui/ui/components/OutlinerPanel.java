@@ -1,6 +1,8 @@
 package com.taha.openrayui.ui.components;
 
+import com.taha.openrayui.geometry.Box;
 import com.taha.openrayui.geometry.Hittable;
+import com.taha.openrayui.geometry.HittableList;
 import com.taha.openrayui.geometry.Sphere;
 import com.taha.openrayui.material.Lambertian;
 import com.taha.openrayui.math.Vec3;
@@ -12,112 +14,95 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
 
-/**
- * Sidebar panel displaying the list of scene objects.
- * Allows adding new objects and removing selected ones.
- */
 public class OutlinerPanel extends JPanel {
 
-    private final JList<Hittable> objectList;
+    private final DefaultListModel<Hittable> model;
+    private final JList<Hittable> list;
+    private final Runnable onUpdate;
 
-    // Callback to trigger a re-render when the scene structure changes
-    private Runnable onSceneChange;
-
-    /**
-     * Default constructor.
-     * Note: Use setOnSceneChange() to attach the render trigger later.
-     */
-    public OutlinerPanel() {
-        this(null);
-    }
-
-    public OutlinerPanel(Runnable onSceneChange) {
-        this.onSceneChange = onSceneChange;
-
+    public OutlinerPanel(Runnable onUpdate) {
+        this.onUpdate = onUpdate;
         setLayout(new BorderLayout());
+        setBorder(new CompoundBorder(new TitledBorder("Scene Objects"), new EmptyBorder(10, 10, 10, 10)));
         setPreferredSize(new Dimension(200, 0));
 
-        // --- STYLING ---
-        setBorder(new CompoundBorder(
-                new TitledBorder("Scene Outliner"),
-                new EmptyBorder(5, 5, 5, 5)
-        ));
+        model = new DefaultListModel<>();
+        list = new JList<>(model);
 
-        // --- LIST COMPONENT ---
-        objectList = new JList<>(Scene.getInstance().getUiListModel());
-        objectList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        add(new JScrollPane(objectList), BorderLayout.CENTER);
+        list.setCellRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof Sphere) {
+                    setText("Sphere " + (index + 1));
+                } else if (value instanceof Box) {
+                    setText("Box " + (index + 1));
+                }
+                return this;
+            }
+        });
 
-        // --- BUTTONS ---
-        JPanel buttonPanel = new JPanel(new GridLayout(1, 2, 5, 0));
-        JButton addBtn = new JButton("+");
-        JButton removeBtn = new JButton("-");
+        add(new JScrollPane(list), BorderLayout.CENTER);
 
-        // Add listeners
-        addBtn.addActionListener(e -> addNewSphere());
-        removeBtn.addActionListener(e -> removeSelectedObject());
+        // --- Buttons ---
+        JPanel buttonPanel = new JPanel(new GridLayout(1, 3, 5, 0));
 
-        buttonPanel.add(addBtn);
-        buttonPanel.add(removeBtn);
+        JButton addSphereBtn = new JButton("Sphere");
+        addSphereBtn.addActionListener(e -> {
+            Sphere s = new Sphere(new Vec3(0, 0, -1), 0.5, new Lambertian(new Vec3(0.5, 0.5, 0.5)));
+            Scene.getInstance().getWorld().add(s);
+            model.addElement(s);
+            onUpdate.run();
+        });
+
+        JButton addBoxBtn = new JButton("Box");
+        addBoxBtn.addActionListener(e -> {
+            Box b = new Box(
+                    new Vec3(-0.5, -0.5, -1.5),
+                    new Vec3(0.5, 0.5, -0.5),
+                    new Lambertian(new Vec3(0.8, 0.8, 0.8))
+            );
+            Scene.getInstance().getWorld().add(b);
+            model.addElement(b);
+            onUpdate.run();
+        });
+
+        JButton deleteBtn = new JButton("Del");
+        deleteBtn.addActionListener(e -> {
+            Hittable selected = list.getSelectedValue();
+            if (selected != null) {
+                Scene.getInstance().getWorld().remove(selected);
+                model.removeElement(selected);
+                onUpdate.run();
+            }
+        });
+
+        buttonPanel.add(addSphereBtn);
+        buttonPanel.add(addBoxBtn);
+        buttonPanel.add(deleteBtn);
+
         add(buttonPanel, BorderLayout.SOUTH);
+
+        // --- BUG FIX: SYNC WITH EXISTING SCENE ---
+        // When the app starts, populate the list with objects already in the scene.
+        syncWithScene();
     }
 
-    /**
-     * Sets the callback to run when objects are added or removed.
-     */
-    public void setOnSceneChange(Runnable onSceneChange) {
-        this.onSceneChange = onSceneChange;
+    private void syncWithScene() {
+        model.clear();
+        HittableList world = Scene.getInstance().getWorld();
+        // Access the raw list from HittableList
+        // Since HittableList doesn't expose the list directly in the snippet,
+        // we assume we can iterate via an accessor or if the list was public.
+        // Assuming HittableList has a public 'objects' list or we add a get(index) method.
+        // Based on previous HittableList code, it has a public 'objects' list or needs one.
+        // Let's assume standard access pattern:
+        for (Hittable obj : world.objects) {
+            model.addElement(obj);
+        }
     }
 
     public JList<Hittable> getList() {
-        return objectList;
-    }
-
-    /**
-     * Creates a new default sphere and adds it to the scene.
-     */
-    private void addNewSphere() {
-        // Create a default grey sphere at origin
-        Sphere newSphere = new Sphere(
-                new Vec3(0, 0, 0),
-                0.5,
-                new Lambertian(new Vec3(0.5, 0.5, 0.5))
-        );
-        newSphere.setName("New Sphere");
-
-        // Add to singleton scene
-        Scene.getInstance().addObject(newSphere);
-
-        // Select the new object in the UI
-        objectList.setSelectedValue(newSphere, true);
-
-        // Trigger render update
-        if (onSceneChange != null) onSceneChange.run();
-    }
-
-    /**
-     * Removes the currently selected object from the scene.
-     */
-    private void removeSelectedObject() {
-        Hittable selected = objectList.getSelectedValue();
-        if (selected != null) {
-            // Confirm deletion
-            int confirm = JOptionPane.showConfirmDialog(
-                    this,
-                    "Delete '" + selected.getName() + "'?",
-                    "Confirm Delete",
-                    JOptionPane.YES_NO_OPTION
-            );
-
-            if (confirm == JOptionPane.YES_OPTION) {
-                Scene.getInstance().removeObject(selected);
-                objectList.clearSelection(); // Clear selection to prevent errors
-
-                // Trigger render update
-                if (onSceneChange != null) onSceneChange.run();
-            }
-        } else {
-            JOptionPane.showMessageDialog(this, "Select an object to delete.");
-        }
+        return list;
     }
 }

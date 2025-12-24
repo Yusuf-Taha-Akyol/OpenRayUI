@@ -1,9 +1,10 @@
 package com.taha.openrayui.ui.controllers;
 
+import com.taha.openrayui.core.RenderSettings;
+import com.taha.openrayui.geometry.Box; // Import Box
 import com.taha.openrayui.geometry.Hittable;
 import com.taha.openrayui.geometry.Sphere;
 import com.taha.openrayui.math.Vec3;
-import com.taha.openrayui.ui.RenderSettings;
 import com.taha.openrayui.ui.components.OutlinerPanel;
 import com.taha.openrayui.ui.components.RenderPanel;
 import com.taha.openrayui.utils.CameraHelper;
@@ -13,22 +14,18 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
 /**
- * Handles interactions with the Transformation Gizmo.
- * - Left Drag on Arrows -> Moves the object (X, Y, Z).
- * - Left Drag on Center -> Scales the object (Radius).
+ * Handles mouse interactions with the Gizmo.
+ * Supports moving and scaling for both Spheres and Boxes.
  */
 public class GizmoController extends MouseAdapter {
 
     private final RenderPanel renderPanel;
     private final OutlinerPanel outlinerPanel;
-    private final Runnable onSceneUpdate; // Fast update (Wireframe/Low res)
-    private final Runnable onFinalUpdate; // Slow update (High res)
+    private final Runnable onSceneUpdate;
+    private final Runnable onFinalUpdate;
 
-    // Interaction States
-    private int activeAxis = -1; // 0=X, 1=Y, 2=Z, 3=Center(Scale), -1=None
+    private int activeAxis = -1; // 0=X, 1=Y, 2=Z, 3=Scale, -1=None
     private Point lastMousePos;
-
-    // Threshold in pixels to detect a click on lines
     private static final double HIT_TOLERANCE = 10.0;
 
     public GizmoController(RenderPanel renderPanel, OutlinerPanel outlinerPanel,
@@ -42,12 +39,10 @@ public class GizmoController extends MouseAdapter {
     @Override
     public void mousePressed(MouseEvent e) {
         lastMousePos = e.getPoint();
-
-        // Determine which part of the Gizmo was clicked
         activeAxis = checkGizmoHit(e.getPoint());
 
         if (activeAxis != -1) {
-            // If we hit the gizmo, lower quality for fast editing
+            // Lower quality during interaction for speed
             RenderSettings.getInstance().samplesPerPixel = 1;
             RenderSettings.getInstance().maxDepth = 3;
         }
@@ -57,99 +52,125 @@ public class GizmoController extends MouseAdapter {
     public void mouseReleased(MouseEvent e) {
         if (activeAxis != -1) {
             activeAxis = -1;
-            // Restore quality
-            RenderSettings.getInstance().samplesPerPixel = 10; // Or whatever default
-            RenderSettings.getInstance().maxDepth = 50;
+            // Restore quality (handled by MainFrame callbacks usually, but safe to trigger update)
             onFinalUpdate.run();
         }
     }
 
     @Override
     public void mouseDragged(MouseEvent e) {
-        if (activeAxis == -1) return; // Not interacting with gizmo
+        if (activeAxis == -1) return;
 
         Hittable selectedObj = outlinerPanel.getList().getSelectedValue();
-        if (!(selectedObj instanceof Sphere)) return;
+        if (selectedObj == null) return;
 
-        Sphere sphere = (Sphere) selectedObj;
         Point currentPos = e.getPoint();
-
-        // Calculate mouse delta
         int dx = currentPos.x - lastMousePos.x;
         int dy = currentPos.y - lastMousePos.y;
 
-        // Sensitivity factor (adjust based on distance to camera ideally)
+        // Sensitivity factor
         double sensitivity = 0.02;
 
-        // Apply Transformation based on Active Axis
-        if (activeAxis == 3) {
-            // --- SCALING (Center) ---
-            // Dragging Right/Up increases size
-            double scaleFactor = (dx - dy) * sensitivity * 0.5;
-            double newRadius = Math.max(0.1, sphere.getRadius() + scaleFactor);
-            sphere.setRadius(newRadius);
-
-        } else {
-            // --- TRANSLATION (Arrows) ---
-            Vec3 currentCenter = sphere.getCenter();
-            Vec3 moveDelta = new Vec3(0,0,0);
-
-            if (activeAxis == 0) { // X Axis (Red)
-                // We project mouse movement loosely to X
-                moveDelta = new Vec3(dx * sensitivity, 0, 0);
-            }
-            else if (activeAxis == 1) { // Y Axis (Green)
-                // Screen Y is inverted, so -dy
-                moveDelta = new Vec3(0, -dy * sensitivity, 0);
-            }
-            else if (activeAxis == 2) { // Z Axis (Blue)
-                // Z mapping is tricky in 2D, approximations:
-                moveDelta = new Vec3(0, 0, (dx + dy) * sensitivity);
-            }
-
-            sphere.setCenter(currentCenter.add(moveDelta));
+        if (selectedObj instanceof Sphere) {
+            handleSphereTransform((Sphere) selectedObj, dx, dy, sensitivity);
+        } else if (selectedObj instanceof Box) {
+            handleBoxTransform((Box) selectedObj, dx, dy, sensitivity);
         }
 
-        // Update View
-        onSceneUpdate.run(); // Re-render
-        renderPanel.repaint(); // Re-draw gizmo
+        onSceneUpdate.run();
+        renderPanel.repaint();
         lastMousePos = currentPos;
     }
 
-    /**
-     * Checks if the mouse click hits any part of the gizmo.
-     * @return 0=X, 1=Y, 2=Z, 3=Center, -1=None
-     */
+    // --- SPHERE LOGIC ---
+    private void handleSphereTransform(Sphere sphere, int dx, int dy, double sensitivity) {
+        if (activeAxis == 3) {
+            // Scale (Radius)
+            double scaleFactor = (dx - dy) * sensitivity * 0.5;
+            double newRadius = Math.max(0.1, sphere.getRadius() + scaleFactor);
+            sphere.setRadius(newRadius);
+        } else {
+            // Move
+            Vec3 moveDelta = calculateMoveDelta(dx, dy, sensitivity);
+            sphere.setCenter(sphere.getCenter().add(moveDelta));
+        }
+    }
+
+    // --- BOX LOGIC (NEW) ---
+    private void handleBoxTransform(Box box, int dx, int dy, double sensitivity) {
+        if (activeAxis == 3) {
+            // Scale (Uniform resize from center)
+            double scaleFactor = (dx - dy) * sensitivity * 0.5;
+            // Avoid negative size
+            double delta = scaleFactor;
+
+            Vec3 oldSize = box.getSize();
+            Vec3 newSize = oldSize.add(new Vec3(delta, delta, delta));
+
+            // Ensure minimum size of 0.1
+            if (newSize.x < 0.1) newSize = new Vec3(0.1, newSize.y, newSize.z);
+            if (newSize.y < 0.1) newSize = new Vec3(newSize.x, 0.1, newSize.z);
+            if (newSize.z < 0.1) newSize = new Vec3(newSize.x, newSize.y, 0.1);
+
+            box.setTransform(box.getCenter(), newSize);
+        } else {
+            // Move
+            Vec3 moveDelta = calculateMoveDelta(dx, dy, sensitivity);
+            box.setTransform(box.getCenter().add(moveDelta), box.getSize());
+        }
+    }
+
+    private Vec3 calculateMoveDelta(int dx, int dy, double sensitivity) {
+        if (activeAxis == 0) return new Vec3(dx * sensitivity, 0, 0); // X
+        if (activeAxis == 1) return new Vec3(0, -dy * sensitivity, 0); // Y
+        if (activeAxis == 2) return new Vec3(0, 0, (dx + dy) * sensitivity); // Z
+        return new Vec3(0,0,0);
+    }
+
+    // --- HIT DETECTION ---
     private int checkGizmoHit(Point mouseP) {
         Hittable selectedObj = outlinerPanel.getList().getSelectedValue();
-        if (selectedObj == null || !(selectedObj instanceof Sphere)) return -1;
+        if (selectedObj == null) return -1;
 
-        Sphere sphere = (Sphere) selectedObj;
-        Vec3 center = sphere.getCenter();
-        double len = sphere.getRadius() * 1.5;
+        Vec3 center;
+        double len;
 
-        // Project Gizmo points to screen
-        Point pC = CameraHelper.worldToScreen(center, renderPanel.getWidth(), renderPanel.getHeight());
-        Point pX = CameraHelper.worldToScreen(center.add(new Vec3(len, 0, 0)), renderPanel.getWidth(), renderPanel.getHeight());
-        Point pY = CameraHelper.worldToScreen(center.add(new Vec3(0, len, 0)), renderPanel.getWidth(), renderPanel.getHeight());
-        Point pZ = CameraHelper.worldToScreen(center.add(new Vec3(0, 0, len)), renderPanel.getWidth(), renderPanel.getHeight());
+        // Determine center and gizmo size based on object type
+        if (selectedObj instanceof Sphere) {
+            Sphere s = (Sphere) selectedObj;
+            center = s.getCenter();
+            len = s.getRadius() * 1.5;
+        } else if (selectedObj instanceof Box) {
+            Box b = (Box) selectedObj;
+            center = b.getCenter();
+            Vec3 s = b.getSize();
+            len = Math.max(s.x, Math.max(s.y, s.z)) * 0.8;
+            if (len < 0.5) len = 0.5;
+        } else {
+            return -1;
+        }
+
+        int w = renderPanel.getWidth();
+        int h = renderPanel.getHeight();
+
+        Point pC = CameraHelper.worldToScreen(center, w, h);
+        Point pX = CameraHelper.worldToScreen(center.add(new Vec3(len, 0, 0)), w, h);
+        Point pY = CameraHelper.worldToScreen(center.add(new Vec3(0, len, 0)), w, h);
+        Point pZ = CameraHelper.worldToScreen(center.add(new Vec3(0, 0, len)), w, h);
 
         if (pC == null) return -1;
 
-        // 1. Check Center (Scaling)
-        if (mouseP.distance(pC) < HIT_TOLERANCE * 1.5) {
-            return 3; // Center hit
-        }
+        // Check Center (Scale)
+        if (mouseP.distance(pC) < HIT_TOLERANCE * 1.5) return 3;
 
-        // 2. Check Axes (Translation)
+        // Check Axes (Move)
         if (pX != null && CameraHelper.distanceToSegment(mouseP, pC, pX) < HIT_TOLERANCE) return 0;
         if (pY != null && CameraHelper.distanceToSegment(mouseP, pC, pY) < HIT_TOLERANCE) return 1;
         if (pZ != null && CameraHelper.distanceToSegment(mouseP, pC, pZ) < HIT_TOLERANCE) return 2;
 
-        return -1; // No hit
+        return -1;
     }
 
-    // Helper to allow CameraController to know if we consumed the event
     public boolean isInteracting() {
         return activeAxis != -1;
     }

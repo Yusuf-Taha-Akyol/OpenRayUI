@@ -6,40 +6,18 @@ import com.taha.openrayui.math.Ray;
 import com.taha.openrayui.math.Vec3;
 
 /**
- * Represents a sphere object in the 3D scene.
- * Updated with getters and setters to allow dynamic editing via the UI.
+ * Represents a 3D Sphere defined by a center point and a radius.
  */
 public class Sphere extends Hittable {
-
-    // Fields are no longer 'final' so they can be modified at runtime
     private Vec3 center;
     private double radius;
-    private Material mat;
+    private Material material;
 
-    public Sphere(Vec3 center, double radius, Material mat) {
+    public Sphere(Vec3 center, double radius, Material material) {
         this.center = center;
         this.radius = radius;
-        this.mat = mat;
-        // Set a default name if none is provided
-        setName("Sphere");
+        this.material = material;
     }
-
-    // --- GETTERS & SETTERS (NEW) ---
-    // These methods allow the Object Inspector to read and modify sphere properties.
-
-    public Vec3 getCenter() { return center; }
-
-    public void setCenter(Vec3 center) { this.center = center; }
-
-    public double getRadius() { return radius; }
-
-    public void setRadius(double radius) { this.radius = radius; }
-
-    public Material getMaterial() { return mat; }
-
-    public void setMaterial(Material mat) { this.mat = mat; }
-
-    // --- RAY TRACING LOGIC ---
 
     @Override
     public boolean hit(Ray r, double tMin, double tMax, HitRecord rec) {
@@ -49,27 +27,37 @@ public class Sphere extends Hittable {
         double c = oc.lengthSquared() - radius * radius;
         double discriminant = half_b * half_b - a * c;
 
-        if (discriminant > 0) {
-            double root = Math.sqrt(discriminant);
-            double temp = (-half_b - root) / a;
-            if (temp < tMax && temp > tMin) {
-                rec.t = temp;
-                rec.p = r.at(rec.t);
-                Vec3 outwardNormal = (rec.p.sub(center)).div(radius);
-                rec.setFaceNormal(r, outwardNormal);
-                rec.mat = mat;
-                return true;
-            }
-            temp = (-half_b + root) / a;
-            if (temp < tMax && temp > tMin) {
-                rec.t = temp;
-                rec.p = r.at(rec.t);
-                Vec3 outwardNormal = (rec.p.sub(center)).div(radius);
-                rec.setFaceNormal(r, outwardNormal);
-                rec.mat = mat;
-                return true;
-            }
+        if (discriminant < 0) return false;
+        double sqrtd = Math.sqrt(discriminant);
+
+        // Find the nearest root that lies in the acceptable range.
+        double root = (-half_b - sqrtd) / a;
+        if (root < tMin || tMax < root) {
+            root = (-half_b + sqrtd) / a;
+            if (root < tMin || tMax < root)
+                return false;
         }
-        return false;
+
+        rec.t = root;
+        rec.p = r.at(rec.t);
+        Vec3 outwardNormal = (rec.p.sub(center)).div(radius);
+        rec.setFaceNormal(r, outwardNormal);
+        rec.mat = material;
+
+        return true;
     }
+
+    public Vec3 getCenter() { return center; }
+    public void setCenter(Vec3 center) { this.center = center; }
+
+    public double getRadius() { return radius; }
+    public void setRadius(double radius) { this.radius = radius; }
+
+    // --- New Methods from Hittable ---
+
+    @Override
+    public Material getMaterial() { return material; }
+
+    @Override
+    public void setMaterial(Material m) { this.material = m; }
 }

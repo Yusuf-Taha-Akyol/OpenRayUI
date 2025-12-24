@@ -1,5 +1,6 @@
 package com.taha.openrayui.ui;
 
+import com.taha.openrayui.core.RenderSettings;
 import com.taha.openrayui.geometry.Hittable;
 import com.taha.openrayui.io.ImageExporter;
 import com.taha.openrayui.io.SceneSerializer;

@@ -1,16 +1,19 @@
 package com.taha.openrayui.geometry;
 
 import com.taha.openrayui.core.HitRecord;
+import com.taha.openrayui.material.Material;
 import com.taha.openrayui.math.Ray;
+
 import java.io.Serializable;
 
 /**
- * Abstract base class for all scene objects.
- * Updated to include a 'name' field for the UI Outliner.
+ * Abstract base class for all objects in the scene (Sphere, Box, etc.).
+ * UPDATED: Now includes a 'name' field so objects can be identified in the UI.
  */
-public abstract class Hittable implements Serializable{
-    private static final long serialVersionUID = 1L;
+public abstract class Hittable implements Serializable {
 
+    // --- NEW: Name Property ---
+    // Every object now has a name, defaulting to "Object" if not set.
     private String name = "Object";
 
     public String getName() {
@@ -21,11 +24,20 @@ public abstract class Hittable implements Serializable{
         this.name = name;
     }
 
+    // --- Abstract Methods (Must be implemented by subclasses) ---
+
+    /**
+     * Determines if a ray hits this object.
+     */
     public abstract boolean hit(Ray r, double tMin, double tMax, HitRecord rec);
 
-    // This is vital! The JList in UI uses this method to display the text.
-    @Override
-    public String toString() {
-        return name;
-    }
+    /**
+     * Gets the material assigned to this object.
+     */
+    public abstract Material getMaterial();
+
+    /**
+     * Sets a new material for this object.
+     */
+    public abstract void setMaterial(Material m);
 }
