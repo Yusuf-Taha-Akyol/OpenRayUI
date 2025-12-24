@@ -60,4 +60,13 @@ public class Sphere extends Hittable {
 
     @Override
     public void setMaterial(Material m) { this.material = m; }
+
+    @Override
+    public AABB boundingBox() {
+        // Box corners: center - radius, center + radius
+        return new AABB(
+                center.sub(new Vec3(radius, radius, radius)),
+                center.add(new Vec3(radius, radius, radius))
+        );
+    }
 }

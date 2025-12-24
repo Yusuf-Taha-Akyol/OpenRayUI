@@ -40,4 +40,11 @@ public abstract class Hittable implements Serializable {
      * Sets a new material for this object.
      */
     public abstract void setMaterial(Material m);
+
+    /**
+     * Computes the bounding box for this object.
+     * Required for building the BVH acceleration structure.
+     * @return An AABB enclosing the object.
+     */
+    public abstract AABB boundingBox();
 }

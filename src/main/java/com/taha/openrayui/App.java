@@ -3,6 +3,8 @@ package com.taha.openrayui;
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.taha.openrayui.core.Camera;
 import com.taha.openrayui.core.Renderer;
+import com.taha.openrayui.geometry.BVHNode;
+import com.taha.openrayui.geometry.Hittable;
 import com.taha.openrayui.geometry.HittableList;
 import com.taha.openrayui.math.Ray;
 import com.taha.openrayui.math.Vec3;
@@ -83,7 +85,21 @@ public class App {
         int depth = settings.maxDepth;
 
         // Get the singleton scene instance
-        HittableList world = Scene.getInstance().getWorld();
+        HittableList sceneList = Scene.getInstance().getWorld();
+
+        // --- OPTIMIZATION: Build BVH Tree ---
+        // Instead of passing the raw list to the renderer, we wrap it in a BVHNode.
+        // This organizes objects into a tree structure for faster intersection tests.
+
+        Hittable world;
+        if (sceneList.objects.isEmpty()) {
+            world = sceneList;
+        } else {
+            // Build the acceleration structure just before rendering
+            long bvhStart = System.currentTimeMillis();
+            world = new BVHNode(sceneList);
+            System.out.println("BVH Build Time: " + (System.currentTimeMillis() - bvhStart) + "ms");
+        }
 
         // Initialize camera with dynamic settings from the UI
         Camera cam = new Camera(
@@ -114,7 +130,7 @@ public class App {
                     double v = (double) ((height - 1 - j) + Math.random()) / (height - 1);
 
                     Ray r = cam.getRay(u, v);
-                    pixelColor = pixelColor.add(renderer.rayColor(r, world, depth));
+                    pixelColor = pixelColor.add(renderer.rayColor(r, sceneList, depth));
                 }
 
                 // Convert mathematical color (0.0-1.0) to RGB integer

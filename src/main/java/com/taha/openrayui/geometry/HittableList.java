@@ -86,4 +86,30 @@ public class HittableList extends Hittable {
         // Intentionally empty.
         // The list is just a container; materials belong to the individual objects inside.
     }
+
+    @Override
+    public AABB boundingBox() {
+        if (objects.isEmpty()) return null;
+
+        AABB outputBox = null;
+        boolean firstBox = true;
+
+        for (Hittable object : objects) {
+            AABB tempBox = object.boundingBox();
+
+            // If an object has no bounds (e.g., infinite plane), the list has no bounds?
+            // Usually valid geometries always return a box.
+            if (tempBox == null) return null;
+
+            if (firstBox) {
+                outputBox = tempBox;
+                firstBox = false;
+            } else {
+                // Expand the box to include the new object
+                outputBox = AABB.surroundingBox(outputBox, tempBox);
+            }
+        }
+
+        return outputBox;
+    }
 }

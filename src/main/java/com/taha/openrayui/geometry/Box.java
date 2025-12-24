@@ -100,4 +100,10 @@ public class Box extends Hittable {
 
     @Override
     public void setMaterial(Material m) { this.material = m; }
+
+    @Override
+    public AABB boundingBox() {
+        // The box geometry itself IS an AABB
+        return new AABB(pMin, pMax);
+    }
 }
