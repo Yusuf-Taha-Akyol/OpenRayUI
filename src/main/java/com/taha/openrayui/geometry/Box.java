@@ -6,32 +6,24 @@ import com.taha.openrayui.math.Ray;
 import com.taha.openrayui.math.Vec3;
 
 /**
- * Represents an Axis-Aligned Bounding Box (AABB) primitive.
- * Defined by two points: Minimum corner (pMin) and Maximum corner (pMax).
+ * Represents an Axis-Aligned Bounding Box (AABB).
+ * Uses robust face detection to map textures correctly to each of the 6 faces.
  */
 public class Box extends Hittable {
-    private Vec3 pMin; // Bottom-Left-Back corner
-    private Vec3 pMax; // Top-Right-Front corner
+    private Vec3 pMin;
+    private Vec3 pMax;
     private Material material;
 
     public Box(Vec3 pMin, Vec3 pMax, Material material) {
-        this.pMin = pMin;
-        this.pMax = pMax;
+        // Ensure pMin is actually smaller than pMax in all axes
+        this.pMin = new Vec3(Math.min(pMin.x, pMax.x), Math.min(pMin.y, pMax.y), Math.min(pMin.z, pMax.z));
+        this.pMax = new Vec3(Math.max(pMin.x, pMax.x), Math.max(pMin.y, pMax.y), Math.max(pMin.z, pMax.z));
         this.material = material;
     }
 
-    public Vec3 getCenter() {
-        return pMin.add(pMax).mul(0.5);
-    }
-
-    public Vec3 getSize() {
-        return pMax.sub(pMin);
-    }
-
-    /**
-     * Updates the box geometry based on a center point and size.
-     * Useful for UI manipulation (Gizmo).
-     */
+    // --- UI Helpers ---
+    public Vec3 getCenter() { return pMin.add(pMax).mul(0.5); }
+    public Vec3 getSize() { return pMax.sub(pMin); }
     public void setTransform(Vec3 center, Vec3 size) {
         Vec3 halfSize = size.mul(0.5);
         this.pMin = center.sub(halfSize);
@@ -40,14 +32,10 @@ public class Box extends Hittable {
 
     @Override
     public boolean hit(Ray r, double tMin, double tMax, HitRecord rec) {
-        // "Slab Method" for AABB Intersection.
-        // Checks intersection against X, Y, and Z planes.
-
         double t0 = tMin;
         double t1 = tMax;
 
-        int hitAxis = -1; // 0:x, 1:y, 2:z
-
+        // Slab Method: Iterate over X(0), Y(1), Z(2) axes
         for (int i = 0; i < 3; i++) {
             double invD = 1.0 / r.direction().get(i);
             double tNear = (pMin.get(i) - r.origin().get(i)) * invD;
@@ -57,76 +45,88 @@ public class Box extends Hittable {
                 double temp = tNear; tNear = tFar; tFar = temp;
             }
 
-            // When updating t0, if we find a new tNear, that's the new surface we're hitting.
-            if (tNear > t0) {
-                t0 = tNear;
-                hitAxis = i; // The collision occurred on this axis.
-            }
-
-            t1 = tFar < t1 ? tFar : t1;
+            t0 = Math.max(tNear, t0);
+            t1 = Math.min(tFar, t1);
 
             if (t1 <= t0) return false;
-        }
-
-        if (hitAxis == -1) {
-            // If the ray is inside or on the border of the box, we still need to assign a normal.
-            // Let's simply find the nearest surface (Old method, but only as a fallback)
-            Vec3 p = r.at(t0);
-            if (Math.abs(p.x - pMin.x) < 0.001 || Math.abs(p.x - pMax.x) < 0.001) hitAxis = 0;
-            else if (Math.abs(p.y - pMin.y) < 0.001 || Math.abs(p.y - pMax.y) < 0.001) hitAxis = 1;
-            else hitAxis = 2;
         }
 
         rec.t = t0;
         rec.p = r.at(t0);
 
-        // Determine the normal vector based on which face was hit.
-        Vec3 p = rec.p;
-        double epsilon = 0.0001;
+        // --- Determine Normal & UVs ---
+        // Since it's an AABB, the hit point must be on one of the planes defined by pMin or pMax.
+        // We check which coordinate matches closely.
 
-        if (Math.abs(p.x - pMin.x) < epsilon) rec.normal = new Vec3(-1, 0, 0);
+        Vec3 p = rec.p;
+        double epsilon = 1e-5;
+
+        // Default normal
+        rec.normal = new Vec3(0, 0, 1);
+
+        // Check proximity to faces to determine the hit face
+        if (Math.abs(p.x - pMin.x) < epsilon)      rec.normal = new Vec3(-1, 0, 0);
         else if (Math.abs(p.x - pMax.x) < epsilon) rec.normal = new Vec3(1, 0, 0);
         else if (Math.abs(p.y - pMin.y) < epsilon) rec.normal = new Vec3(0, -1, 0);
         else if (Math.abs(p.y - pMax.y) < epsilon) rec.normal = new Vec3(0, 1, 0);
         else if (Math.abs(p.z - pMin.z) < epsilon) rec.normal = new Vec3(0, 0, -1);
-        else rec.normal = new Vec3(0, 0, 1);
+        else if (Math.abs(p.z - pMax.z) < epsilon) rec.normal = new Vec3(0, 0, 1);
 
         rec.setFaceNormal(r, rec.normal);
 
-        // --- UV Coordinates Calculation for Box ---
-        // Calculates normalized (0-1) coordinates based on the hit face.
-        double width = pMax.x - pMin.x;
-        double height = pMax.y - pMin.y;
-        double depth = pMax.z - pMin.z;
-
-        double localX = (rec.p.x - pMin.x) / width;
-        double localY = (rec.p.y - pMin.y) / height;
-        double localZ = (rec.p.z - pMin.z) / depth;
-
-        // Planar mapping based on the normal direction
-        if (Math.abs(rec.normal.x) > 0.9) {
-            // Side faces (YZ plane)
-            rec.u = localZ; rec.v = localY;
-        } else if (Math.abs(rec.normal.y) > 0.9) {
-            // Top/Bottom faces (XZ plane)
-            rec.u = localX; rec.v = localZ;
-        } else {
-            // Front/Back faces (XY plane)
-            rec.u = localX; rec.v = localY;
-        }
+        // Calculate UV coordinates based on the hit face
+        computeBoxUV(rec);
 
         rec.mat = material;
         return true;
     }
 
-    @Override
-    public AABB boundingBox() {
-        return new AABB(pMin, pMax);
+    /**
+     * Maps the hit point on the box surface to [0,1] UV coordinates.
+     */
+    private void computeBoxUV(HitRecord rec) {
+        Vec3 p = rec.p;
+        Vec3 n = rec.normal;
+        double u = 0, v = 0;
+
+        // Normalize coordinates relative to box dimensions
+        double width  = pMax.x - pMin.x;
+        double height = pMax.y - pMin.y;
+        double depth  = pMax.z - pMin.z;
+
+        // If normal is parallel to X (Right/Left faces) -> Use Z and Y
+        if (Math.abs(n.x) > 0.5) {
+            u = (p.z - pMin.z) / depth;
+            v = (p.y - pMin.y) / height;
+            // Correct orientation for left face
+            if (n.x < 0) u = 1.0 - u;
+        }
+        // If normal is parallel to Y (Top/Bottom faces) -> Use X and Z
+        else if (Math.abs(n.y) > 0.5) {
+            u = (p.x - pMin.x) / width;
+            v = (p.z - pMin.z) / depth;
+            // Correct orientation for top face
+            if (n.y > 0) v = 1.0 - v;
+        }
+        // If normal is parallel to Z (Front/Back faces) -> Use X and Y
+        else {
+            u = (p.x - pMin.x) / width;
+            v = (p.y - pMin.y) / height;
+            // Correct orientation for front face
+            if (n.z > 0) u = 1.0 - u;
+        }
+
+        rec.u = clamp(u);
+        rec.v = clamp(v);
     }
 
-    @Override
-    public Material getMaterial() { return material; }
+    private double clamp(double x) {
+        if (x < 0) return 0;
+        if (x > 1) return 1;
+        return x;
+    }
 
-    @Override
-    public void setMaterial(Material m) { this.material = m; }
+    @Override public AABB boundingBox() { return new AABB(pMin, pMax); }
+    @Override public Material getMaterial() { return material; }
+    @Override public void setMaterial(Material m) { this.material = m; }
 }

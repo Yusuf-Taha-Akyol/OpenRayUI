@@ -2,7 +2,7 @@ package com.taha.openrayui.core;
 
 import com.taha.openrayui.math.Ray;
 import com.taha.openrayui.math.Vec3;
-import com.taha.openrayui.material.Material; // Birazdan oluşturacağız
+import com.taha.openrayui.material.Material;
 
 /**
  * A structure to store details about a ray-object intersection.
@@ -14,8 +14,8 @@ public class HitRecord {
     public double t;       // Ray parameter t where P(t) = origin + t*direction
     public boolean frontFace; // True if ray hit the front face, false if inside
     public Material mat;   // The material of the object hit
-    public double u;
-    public double v;
+    public double u;       // Texture coordinate U
+    public double v;       // Texture coordinate V
 
     /**
      * Sets the hit record normal vector.
@@ -33,7 +33,6 @@ public class HitRecord {
     /**
      * Copies data from another HitRecord into this one.
      * Essential for tracking the closest hit in a list of objects.
-     * This method resolves the "cannot find symbol" error.
      */
     public void copyFrom(HitRecord rec) {
         this.p = rec.p;
@@ -41,5 +40,8 @@ public class HitRecord {
         this.t = rec.t;
         this.frontFace = rec.frontFace;
         this.mat = rec.mat;
+        // FIX: Copy texture coordinates!
+        this.u = rec.u;
+        this.v = rec.v;
     }
 }

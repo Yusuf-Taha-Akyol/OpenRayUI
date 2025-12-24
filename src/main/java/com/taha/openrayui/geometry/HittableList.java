@@ -60,31 +60,24 @@ public class HittableList extends Hittable {
                 rec.normal = tempRec.normal;
                 rec.mat = tempRec.mat;
                 rec.frontFace = tempRec.frontFace;
+
+                // FIX: Propagate UV coordinates from the geometry to the main record
+                rec.u = tempRec.u;
+                rec.v = tempRec.v;
             }
         }
 
         return hitAnything;
     }
 
-    // --- FIX: Implement Abstract Methods from Hittable ---
-
-    /**
-     * A list container doesn't have a single material.
-     * @return null
-     */
     @Override
     public Material getMaterial() {
         return null;
     }
 
-    /**
-     * Setting material on the list itself does nothing by default.
-     * (Unless we wanted to batch-update all children, but keeping it safe for now).
-     */
     @Override
     public void setMaterial(Material m) {
         // Intentionally empty.
-        // The list is just a container; materials belong to the individual objects inside.
     }
 
     @Override
@@ -97,15 +90,12 @@ public class HittableList extends Hittable {
         for (Hittable object : objects) {
             AABB tempBox = object.boundingBox();
 
-            // If an object has no bounds (e.g., infinite plane), the list has no bounds?
-            // Usually valid geometries always return a box.
             if (tempBox == null) return null;
 
             if (firstBox) {
                 outputBox = tempBox;
                 firstBox = false;
             } else {
-                // Expand the box to include the new object
                 outputBox = AABB.surroundingBox(outputBox, tempBox);
             }
         }
