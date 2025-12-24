@@ -90,7 +90,6 @@ public class App {
         // --- OPTIMIZATION: Build BVH Tree ---
         // Instead of passing the raw list to the renderer, we wrap it in a BVHNode.
         // This organizes objects into a tree structure for faster intersection tests.
-
         Hittable world;
         if (sceneList.objects.isEmpty()) {
             world = sceneList;

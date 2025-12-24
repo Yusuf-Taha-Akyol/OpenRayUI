@@ -34,7 +34,8 @@ public class Metal implements Material {
     public ScatterResult scatter(Ray rIn, HitRecord rec) {
         Vec3 reflected = reflect(rIn.direction().unitVector(), rec.normal);
 
-        // Add fuzziness to the reflection
+        Vec3 fuzzedReflected = reflected.add(Vec3.randomUnitVector().mul(fuzz));
+
         Ray scattered = new Ray(rec.p, reflected.add(randomInUnitSphere().mul(fuzz)));
 
         if (scattered.direction().dot(rec.normal) > 0) {

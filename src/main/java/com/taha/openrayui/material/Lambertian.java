@@ -4,6 +4,8 @@ import com.taha.openrayui.core.HitRecord;
 import com.taha.openrayui.core.ScatterResult;
 import com.taha.openrayui.math.Ray;
 import com.taha.openrayui.math.Vec3;
+import com.taha.openrayui.texture.SolidColor;
+import com.taha.openrayui.texture.Texture;
 
 /**
  * Represents a matte (diffuse) material.
@@ -11,21 +13,28 @@ import com.taha.openrayui.math.Vec3;
  */
 public class Lambertian implements Material {
 
-    // Not 'final' anymore, allowing runtime color changes
-    private Vec3 albedo;
+    private Texture albedo;
 
-    public Lambertian(Vec3 albedo) {
-        this.albedo = albedo;
+    public Lambertian(Vec3 color) {
+        this.albedo = new SolidColor(color);
+    }
+
+    public Lambertian(Texture texture) {
+        this.albedo = texture;
     }
 
     // --- GETTERS & SETTERS (Required for Object Inspector) ---
 
-    public Vec3 getAlbedo() {
-        return albedo;
+    public Vec3 getAlbedoColor() {
+        return albedo.value(0,0, new Vec3(0,0,0));
     }
 
-    public void setAlbedo(Vec3 albedo) {
-        this.albedo = albedo;
+    public void setAlbedo(Vec3 color) {
+        this.albedo = new SolidColor(color);
+    }
+
+    public void setAlbedoColor(Texture texture) {
+        this.albedo = texture;
     }
 
     // --- SCATTER LOGIC ---
@@ -41,7 +50,10 @@ public class Lambertian implements Material {
         }
 
         Ray scattered = new Ray(rec.p, scatterDirection);
-        return new ScatterResult(scattered, albedo);
+
+        Vec3 attenuation = albedo.value(rec.u, rec.v, rec.p);
+
+        return new ScatterResult(scattered, attenuation);
     }
 
     private boolean nearZero(Vec3 v) {

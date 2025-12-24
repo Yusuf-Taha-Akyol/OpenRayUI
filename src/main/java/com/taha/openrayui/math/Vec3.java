@@ -84,6 +84,17 @@ public class Vec3 implements Serializable {
         return this.div(this.length());
     }
 
+    public static Vec3 randomUnitVector() {
+        while (true) {
+            Vec3 p = new Vec3(
+                    Math.random() * 2 - 1,
+                    Math.random() * 2 - 1,
+                    Math.random() * 2 - 1
+            );
+            if (p.lengthSquared() < 1) return p.unitVector();
+        }
+    }
+
     @Override
     public String toString() {
         return "Vec3(" + x + ", " + y + ", " + z + ")";

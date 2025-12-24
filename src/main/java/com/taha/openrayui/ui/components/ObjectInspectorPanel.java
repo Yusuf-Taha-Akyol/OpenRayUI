@@ -139,27 +139,26 @@ public class ObjectInspectorPanel extends JPanel {
         dynamicPanel.add(materialCombo);
         dynamicPanel.add(javax.swing.Box.createVerticalStrut(5));
 
-        // HATA DÜZELTME: Getter ve Setter kullanımı
         if (mat instanceof Lambertian) {
             Lambertian l = (Lambertian) mat;
             dynamicPanel.add(new JLabel("Color (R, G, B):"));
-            // l.albedo yerine l.getAlbedo()
-            addVec3Field(l.getAlbedo(), col -> { l.setAlbedo(col); onUpdate.run(); });
+
+            addVec3Field(l.getAlbedoColor(), col -> {
+                l.setAlbedo(col);
+                onUpdate.run();
+            });
         }
         else if (mat instanceof Metal) {
             Metal m = (Metal) mat;
             dynamicPanel.add(new JLabel("Color (R, G, B):"));
-            // m.albedo yerine m.getAlbedo()
             addVec3Field(m.getAlbedo(), col -> { m.setAlbedo(col); onUpdate.run(); });
 
             dynamicPanel.add(new JLabel("Fuzziness (0.0 - 1.0):"));
-            // m.fuzz yerine m.getFuzz()
             addDoubleField(m.getFuzz(), f -> { m.setFuzz(f); onUpdate.run(); });
         }
         else if (mat instanceof Dielectric) {
             Dielectric d = (Dielectric) mat;
             dynamicPanel.add(new JLabel("Refraction Index (1.5 = Glass):"));
-            // d.ir yerine d.getIr()
             addDoubleField(d.getIr(), ir -> { d.setIr(ir); onUpdate.run(); });
         }
     }

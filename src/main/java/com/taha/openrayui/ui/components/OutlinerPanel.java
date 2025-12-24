@@ -7,6 +7,7 @@ import com.taha.openrayui.geometry.Sphere;
 import com.taha.openrayui.material.Lambertian;
 import com.taha.openrayui.math.Vec3;
 import com.taha.openrayui.model.Scene;
+import com.taha.openrayui.texture.CheckerTexture;
 
 import javax.swing.*;
 import javax.swing.border.CompoundBorder;
@@ -55,13 +56,24 @@ public class OutlinerPanel extends JPanel {
             onUpdate.run();
         });
 
+        // --- ADD BOX BUTTON (FIXED SCALE) ---
         JButton addBoxBtn = new JButton("Box");
         addBoxBtn.addActionListener(e -> {
-            Box b = new Box(
-                    new Vec3(-0.5, -0.5, -1.5),
-                    new Vec3(0.5, 0.5, -0.5),
-                    new Lambertian(new Vec3(0.8, 0.8, 0.8))
+            // Scale: 10.0 ensures roughly 3 tiles per unit (Visible Checker Pattern)
+            CheckerTexture checker = new CheckerTexture(
+                    new Vec3(0.2, 0.3, 0.1), // Dark Green
+                    new Vec3(0.9, 0.9, 0.9), // White
+                    10.0
             );
+
+            // Create a Cube (1x1x1)
+            Box b = new Box(
+                    new Vec3(-0.5, -0.5, -2.5), // Min corner
+                    new Vec3(0.5, 0.5, -1.5),   // Max corner
+                    new Lambertian(checker)     // Assign texture
+            );
+            b.setName("Checker Cube");
+
             Scene.getInstance().getWorld().add(b);
             model.addElement(b);
             onUpdate.run();
@@ -83,20 +95,13 @@ public class OutlinerPanel extends JPanel {
 
         add(buttonPanel, BorderLayout.SOUTH);
 
-        // --- BUG FIX: SYNC WITH EXISTING SCENE ---
-        // When the app starts, populate the list with objects already in the scene.
+        // SYNC
         syncWithScene();
     }
 
     private void syncWithScene() {
         model.clear();
         HittableList world = Scene.getInstance().getWorld();
-        // Access the raw list from HittableList
-        // Since HittableList doesn't expose the list directly in the snippet,
-        // we assume we can iterate via an accessor or if the list was public.
-        // Assuming HittableList has a public 'objects' list or we add a get(index) method.
-        // Based on previous HittableList code, it has a public 'objects' list or needs one.
-        // Let's assume standard access pattern:
         for (Hittable obj : world.objects) {
             model.addElement(obj);
         }

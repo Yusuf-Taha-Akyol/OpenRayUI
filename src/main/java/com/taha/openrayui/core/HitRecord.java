@@ -14,6 +14,8 @@ public class HitRecord {
     public double t;       // Ray parameter t where P(t) = origin + t*direction
     public boolean frontFace; // True if ray hit the front face, false if inside
     public Material mat;   // The material of the object hit
+    public double u;
+    public double v;
 
     /**
      * Sets the hit record normal vector.
