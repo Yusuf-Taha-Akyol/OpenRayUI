@@ -101,8 +101,6 @@ To further enhance the capability and performance of OpenRayUI, the following fe
 
 ## 👨‍💻 Contact
 
-If you have any questions or would like to discuss the technical details of this project, please feel free to reach out.
-
 **Developer:** Yusuf Taha Akyol
 **Email:** yusuftahaakyol2868@gmail.com
-**LinkedIn:** https://github.com/Yusuf-Taha-Akyol
+**LinkedIn:** www.linkedin.com/in/yusuf-taha-akyol-7429ba319
